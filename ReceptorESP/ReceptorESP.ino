@@ -6,6 +6,9 @@ const uint8_t MAC_SENDER_1[] = {
   0xE0, 0x72, 0xA1, 0x72, 0xDA, 0x54
 };
 
+const uint8_t MAC_SENDER_2[] = {
+  0xE0, 0x72, 0xA1, 0x71, 0x00, 0xBC
+};
 
 const uint8_t MAC_RECEIVER_1[] = {
   0xE0, 0x72, 0xA1, 0x72, 0xD8, 0xBC
@@ -16,7 +19,7 @@ const uint8_t *SENDERS_MACS[] = { MAC_RECEIVER_1 };
 const uint8_t SENDERS_COUNT = sizeof(SENDERS_MACS) / sizeof(uint8_t *);
 
 
-const uint8_t *RECEIVERS_MACS[] = { MAC_SENDER_1 };
+const uint8_t *RECEIVERS_MACS[] = { MAC_SENDER_1, MAC_SENDER_2 };
 const uint8_t RECEIVERS_COUNT = sizeof(RECEIVERS_MACS) / sizeof(uint8_t *);
 
 
