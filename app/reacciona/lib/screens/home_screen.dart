@@ -15,16 +15,16 @@ class HomeScreen extends StatelessWidget {
         children: [
 
           Text('Nombre de la persona'),
-
+          
           SizedBox(height: 20),
 
           Text('Mejor tiempo'),
-          Container(height: 50, width: 200, color: Colors.grey),
+          Container(color: Colors.grey),
 
           SizedBox(height: 20),
 
           Text('Tiempo actual'),
-          Container(height: 50, width: 200, color: Colors.grey),
+          Container(color: Colors.grey),
 
           SizedBox(height: 20),
 
