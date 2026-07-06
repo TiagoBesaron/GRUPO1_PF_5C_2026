@@ -31,38 +31,6 @@ class HomeScreen extends StatelessWidget {
         label: const Text("Entrenar"),
       ),
 
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              break;
-
-            case 1:
-              context.go('/tiempos');
-              break;
-
-            case 2:
-              context.go('/settings');
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: "Inicio",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.timer),
-            label: "Tiempos",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: "Ajustes",
-          ),
-        ],
-      ),
-
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(18),
         child: Column(
