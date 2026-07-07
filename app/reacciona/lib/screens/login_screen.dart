@@ -1,62 +1,166 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+
+// Pantalla inicial de acceso a la aplicación.
+// Permite al usuario ingresar sus credenciales antes
+// de acceder al sistema LED Trainer.
 class LoginScreen extends StatelessWidget {
+
   const LoginScreen({super.key});
+
 
   @override
   Widget build(BuildContext context) {
 
+
+    // Controladores encargados de obtener la información
+    // ingresada por el usuario en los campos de texto.
+    // Actualmente la validación es simulada.
+    // En una versión final se pueden utilizar para validar
+    // usuarios mediante Firebase.
     final email = TextEditingController();
+
     final pass = TextEditingController();
 
+
+
     return Scaffold(
+
+
       body: Center(
+
+
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+
+          mainAxisAlignment:
+              MainAxisAlignment.center,
+
+
           children: [
 
-            Text('Iniciar sesión', style: TextStyle(fontSize: 30)),
 
-            SizedBox(height: 20),
 
+            // Título principal de la pantalla.
+            const Text(
+
+              'Iniciar sesión',
+
+              style: TextStyle(
+
+                fontSize:30,
+
+              ),
+
+            ),
+
+
+
+            const SizedBox(height:20),
+
+
+
+
+            // Campo donde el usuario ingresa su correo electrónico.
             TextField(
+
               controller: email,
-              decoration: InputDecoration(
-                hintText: 'Email',
-                border: OutlineInputBorder(),
+
+
+              decoration: const InputDecoration(
+
+                hintText:'Email',
+
+                border:OutlineInputBorder(),
+
               ),
+
             ),
 
-            SizedBox(height: 20),
 
+
+
+            const SizedBox(height:20),
+
+
+
+
+
+            // Campo donde el usuario ingresa su contraseña.
             TextField(
+
               controller: pass,
-              decoration: InputDecoration(
-                hintText: 'Contraseña',
-                border: OutlineInputBorder(),
+
+
+              decoration: const InputDecoration(
+
+                hintText:'Contraseña',
+
+                border:OutlineInputBorder(),
+
               ),
+
             ),
 
-            SizedBox(height: 20),
 
+
+
+            const SizedBox(height:20),
+
+
+
+
+
+            // Botón de ingreso.
+            // Actualmente solamente redirige a la pantalla principal.
             ElevatedButton(
-              onPressed: () {
+
+              onPressed:(){
+
+
                 context.go('/home');
+
+
               },
-              child: Text('Ingresar'),
+
+
+              child:
+                  const Text('Ingresar'),
+
             ),
 
+
+
+
+            // Permite acceder a la pantalla de registro
+            // cuando el usuario todavía no posee una cuenta.
             TextButton(
-              onPressed: () {
-                context.go('/register');
-              },
-              child: Text('Registrarse'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
+              onPressed:(){
+
+
+                context.go('/register');
+
+
+              },
+
+
+              child:
+                  const Text('Registrarse'),
+
+            ),
+
+
+          ],
+
+        ),
+
+      ),
+
+
+    );
+
+
+  }
+
+}
