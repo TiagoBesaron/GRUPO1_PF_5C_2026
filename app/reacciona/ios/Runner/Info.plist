@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
+<key>NSBluetoothAlwaysUsageDescription</key>
+<string>La aplicación necesita Bluetooth para conectarse al LED Trainer.</string>
+
+<key>NSBluetoothPeripheralUsageDescription</key>
+<string>La aplicación necesita Bluetooth para comunicarse con el ESP32.</string>
+
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>La ubicación se utiliza para buscar dispositivos Bluetooth cercanos.</string>
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>

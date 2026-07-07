@@ -47,12 +47,12 @@ class HomeScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            Card(
+          Card(
               child: ListTile(
                 leading: Icon(
                   conectado
-                      ? Icons.bluetooth_connected
-                      : Icons.bluetooth_disabled,
+                  ? Icons.bluetooth_connected
+                  : Icons.bluetooth_disabled,
                   color: conectado ? Colors.green : Colors.red,
                   size: 35,
                 ),
@@ -62,12 +62,15 @@ class HomeScreen extends StatelessWidget {
                 ),
                 subtitle: Text(
                   conectado
-                      ? "ESP32 conectado"
-                      : "ESP32 desconectado",
+                  ? "ESP32 conectado"
+                  : "ESP32 desconectado",
                 ),
+                  trailing: const Icon(Icons.arrow_forward_ios),
+                  onTap: () {
+                  context.push('/bluetooth');
+                },
               ),
             ),
-
             const SizedBox(height: 20),
 
             Row(

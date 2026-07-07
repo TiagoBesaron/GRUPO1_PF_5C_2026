@@ -5,6 +5,7 @@ import '../../screens/settings_screen.dart';
 import '../../screens/edit_profile_screen.dart';
 import '../../screens/tiempos_screen.dart';
 import '../../screens/main_screen.dart';
+import '../../screens/bluetooth_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -39,6 +40,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/tiempos',
       builder: (context, state) => const TiemposScreen(),
+    ),
+    GoRoute(
+      path: '/bluetooth',
+      builder: (context, state) => const BluetoothScreen(),
     ),
 
   ],
