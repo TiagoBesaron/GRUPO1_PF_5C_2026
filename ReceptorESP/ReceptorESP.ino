@@ -12,6 +12,11 @@ const uint8_t MAC_SENDER_2[] = {
   0xE0, 0x72, 0xA1, 0x71, 0x00, 0xBC
 };
 
+// Dirección MAC del tercer emisor
+const uint8_t MAC_SENDER_3[] = {
+  0xE0, 0x72, 0xA1, 0x70, 0xB6, 0xDC
+};
+
 // Dirección MAC del receptor
 const uint8_t MAC_RECEIVER_1[] = {
   0xE0, 0x72, 0xA1, 0x72, 0xD8, 0xBC
@@ -27,7 +32,7 @@ const uint8_t SENDERS_COUNT = sizeof(SENDERS_MACS) / sizeof(uint8_t *);
 
 
 // Lista de receptores (los dos ESP32 emisores)
-const uint8_t *RECEIVERS_MACS[] = { MAC_SENDER_1, MAC_SENDER_2 };
+const uint8_t *RECEIVERS_MACS[] = { MAC_SENDER_1, MAC_SENDER_2, MAC_SENDER_3 };
 
 // Cantidad de receptores
 const uint8_t RECEIVERS_COUNT = sizeof(RECEIVERS_MACS) / sizeof(uint8_t *);
