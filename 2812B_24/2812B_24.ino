@@ -7,6 +7,7 @@ Adafruit_NeoPixel tira(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
 void setup() {
   tira.begin();
+  tira.setBrightness(200);
 }
 
 void loop() {

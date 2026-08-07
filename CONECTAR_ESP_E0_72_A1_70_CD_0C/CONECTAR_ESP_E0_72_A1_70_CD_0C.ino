@@ -1,71 +1,139 @@
-#include <WiFi.h>      // Librería para utilizar el WiFi del ESP32
-#include <esp_now.h>   // Librería para utilizar el protocolo ESP-NOW
+#include <WiFi.h>
+#include <esp_now.h>
+#include <Adafruit_NeoPixel.h>
 
-// Dirección MAC de este ESP32 
+// Tira led
+#define PIN 21
+#define NUMPIXELS 24
+
+Adafruit_NeoPixel tira(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+
+// MAC de este ESP32
 const uint8_t MAC_SENDER_1[] = {
   0xE0, 0x72, 0xA1, 0x70, 0xCD, 0x0C
 };
 
-// Dirección MAC del ESP32 al que se enviarán los datos
+// MAC del ESP32 central
 const uint8_t MAC_RECEIVER_1[] = {
   0xE0, 0x72, 0xA1, 0x72, 0xD8, 0xBC
 };
 
-// Variable que guarda el instante del último envío
-unsigned long previousMillis = 0;
+bool tiraEncendida = false;
 
-// Tiempo entre envíos (2000 ms = 2 segundos)
-const unsigned long interval = 2000;
+unsigned long tiempoInicioTira = 0;
 
-// Callback que se ejecuta cuando finaliza un envío
-void OnDataSent(const wifi_tx_info_t *info, esp_now_send_status_t status)
+const unsigned long tiempoTira = 2000;
+
+
+// Se ejecuta cuando termina un envío
+void OnDataSent(
+  const wifi_tx_info_t *info,
+  esp_now_send_status_t status)
 {
   Serial.print("Last Packet Send Status: ");
 
-  // Indica si el mensaje llegó correctamente al receptor
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  Serial.println(
+    status == ESP_NOW_SEND_SUCCESS
+      ? "Delivery Success"
+      : "Delivery Fail"
+  );
 }
 
-// Función encargada de enviar un mensaje
-void SendMessage()
-{
-  // Mensaje que será enviado
-  String payload = "Hola Fer";
 
-  // Envía el mensaje al ESP32 cuya MAC es MAC_RECEIVER_1
+// Recibe los mensajes del central
+void OnDataRecv(
+  const esp_now_recv_info_t *recv_info,
+  const uint8_t *incomingData,
+  int len)
+{
+  String mensaje;
+
+  for (int i = 0; i < len; i++)
+  {
+    mensaje += (char)incomingData[i];
+  }
+
+  Serial.print("Mensaje Recibido: ");
+  Serial.println(mensaje);
+
+  if (mensaje == "EMPEZAR" && !tiraEncendida)
+  {
+    Serial.println("Comenzando...");
+
+    for (int i = 0; i < NUMPIXELS; i++)
+    {
+      tira.setPixelColor(
+        i,
+        tira.Color(255, 0, 0)
+      );
+    }
+
+    tira.show();
+
+    tiraEncendida = true;
+    tiempoInicioTira = millis();
+  }
+}
+
+
+// Envía al central el aviso de que terminó
+void SendFinished()
+{
+  String payload = "TERMINADO";
+
   esp_err_t result = esp_now_send(
     MAC_RECEIVER_1,
     (uint8_t *)payload.c_str(),
     payload.length()
   );
 
-  // Verifica si el envío pudo iniciarse correctamente
   if (result == ESP_OK)
   {
-    Serial.println("Sent with success");
+    Serial.println("Terminado enviado");
   }
   else
   {
-    Serial.println("Error sending the data");
+    Serial.println("Error enviando terminado");
   }
 }
 
-// Registra el dispositivo receptor como "peer"
+
+// Controla cuánto tiempo queda prendida la tira
+void controlarTira()
+{
+  if (tiraEncendida)
+  {
+    unsigned long tiempoActual = millis();
+
+    if (tiempoActual - tiempoInicioTira >= tiempoTira)
+    {
+      tira.clear();
+      tira.show();
+
+      tiraEncendida = false;
+
+      Serial.println("Tira apagada");
+
+      SendFinished();
+    }
+  }
+}
+
+
+// Registra al central
 void RegisterPeeks()
 {
-  // Estructura con la información del peer
   esp_now_peer_info_t peerInfo = {};
 
-  // Copia la dirección MAC del receptor
-  memcpy(peerInfo.peer_addr, MAC_RECEIVER_1, 6);
+  memcpy(
+    peerInfo.peer_addr,
+    MAC_RECEIVER_1,
+    6
+  );
 
-  // Canal 0 = utiliza el canal actual del WiFi
   peerInfo.channel = 0;
-
-  // Sin cifrado
   peerInfo.encrypt = false;
 
-  // Agrega el peer a la lista de dispositivos permitidos
   if (esp_now_add_peer(&peerInfo) != ESP_OK)
   {
     Serial.println("Failed to add peer");
@@ -76,50 +144,40 @@ void RegisterPeeks()
   }
 }
 
-// Inicializa el protocolo ESP-NOW
+
+// Inicializa ESP-NOW
 void InitEspNow()
 {
-  // Inicializa ESP-NOW
   if (esp_now_init() != ESP_OK)
   {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
 
-  // Registra la función callback que informa el estado del envío
   esp_now_register_send_cb(OnDataSent);
 
-  // Registra el receptor
+  esp_now_register_recv_cb(OnDataRecv);
+
   RegisterPeeks();
 }
 
+
 void setup()
 {
-  // Inicializa el monitor serie
-  Serial.begin(9600);
+  Serial.begin(115200);
 
-  // Coloca el ESP32 en modo estación
+  tira.begin();
+  tira.setBrightness(200);
+  tira.clear();
+  tira.show();
+
   WiFi.mode(WIFI_STA);
 
-  // Inicializa ESP-NOW
   InitEspNow();
 }
 
+
 void loop()
 {
-  // Obtiene el tiempo transcurrido desde que el ESP32 se encendió
-  unsigned long currentMillis = millis();
-
-  // Comprueba si pasaron 2 segundos desde el último envío
-  if (currentMillis - previousMillis >= interval)
-  {
-    // Actualiza el instante del último envío
-    previousMillis = currentMillis;
-
-    // Envía el mensaje
-    SendMessage();
-  }
-
-  // El programa sigue ejecutándose sin bloquearse,
-  // permitiendo realizar otras tareas mientras espera.
+  controlarTira();
 }
