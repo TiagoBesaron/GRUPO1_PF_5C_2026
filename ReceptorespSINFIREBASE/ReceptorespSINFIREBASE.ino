@@ -1,5 +1,6 @@
 #include <esp_now.h>
 #include <WiFi.h>
+#include <esp_wifi.h> // Incluido para gestionar el canal y energía Wi-Fi
 #include <Adafruit_NeoPixel.h>
 
 #define PIN 21
@@ -195,7 +196,7 @@ void RegisterAllPeers()
 {
   esp_now_peer_info_t peerInfo = {};
 
-  peerInfo.channel = 0;
+  peerInfo.channel = 1; // Fijado explícitamente en el Canal 1
   peerInfo.encrypt = false;
 
   for (int i = 0; i < RECEIVERS_COUNT; i++)
@@ -242,7 +243,7 @@ void InitEspNow()
 
 void setup()
 {
-  Serial.begin(115200);
+  Serial.begin(9600);
 
   tira.begin();
   tira.setBrightness(200);
@@ -251,6 +252,10 @@ void setup()
 
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
+
+  // Configuraciones de Wi-Fi para estabilizar ESP-NOW
+  esp_wifi_set_ps(WIFI_PS_NONE);                   // Desactiva ahorro de energía Wi-Fi
+  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);  // Fuerza la radio a transmitir en el Canal 1
 
   InitEspNow();
 
