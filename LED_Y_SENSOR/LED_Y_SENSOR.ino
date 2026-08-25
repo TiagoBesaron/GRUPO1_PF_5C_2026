@@ -3,7 +3,7 @@
 #define PIN 21
 #define NUMPIXELS 24
 
-#define SENSOR_PIN 0
+#define SENSOR_PIN 4
 
 Adafruit_NeoPixel tira(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
