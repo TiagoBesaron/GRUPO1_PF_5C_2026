@@ -5,21 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 
 // Provider global encargado de administrar el estado Bluetooth.
-// Permite que cualquier pantalla de la aplicación pueda consultar
-// si el ESP32 está conectado y acceder a las funciones de conexión.
 final bluetoothProvider =
     StateNotifierProvider<BluetoothNotifier, BluetoothState>(
   (ref) => BluetoothNotifier(),
 );
 
 
-
-// Clase que representa el estado actual de la conexión Bluetooth.
-// Guarda:
-// - El dispositivo conectado.
-// - Si existe una conexión activa con el ESP32.
-//
-// Al cambiar este estado, Riverpod actualiza automáticamente las pantallas que estén utilizando este provider.
+// Estado actual de Bluetooth.
 class BluetoothState {
 
   final BluetoothDevice? device;
@@ -28,141 +20,160 @@ class BluetoothState {
 
 
   const BluetoothState({
-
     this.device,
-
     this.conectado = false,
-
   });
 
 
-
-  // Permite crear una copia del estado modificando solamente
-  // los valores necesarios sin perder la información existente.
   BluetoothState copyWith({
-
     BluetoothDevice? device,
-
     bool? conectado,
-
+    bool limpiarDevice = false,
   }) {
 
     return BluetoothState(
 
-      device: device ?? this.device,
+      device: limpiarDevice
+          ? null
+          : device ?? this.device,
 
-      conectado: conectado ?? this.conectado,
-
+      conectado:
+          conectado ?? this.conectado,
     );
-
   }
 }
 
 
-
-
-
-// Controlador encargado de modificar el estado Bluetooth.
-// Se comunica con flutter_blue_plus para realizar las conexiones
-// reales con dispositivos BLE como el ESP32.
-class BluetoothNotifier extends StateNotifier<BluetoothState> {
-
+// Controlador encargado de administrar la conexión Bluetooth.
+class BluetoothNotifier
+    extends StateNotifier<BluetoothState> {
 
   BluetoothNotifier()
       : super(const BluetoothState());
 
 
-
-  // Guarda la suscripción al estado de conexión del dispositivo.
-  // Permite detectar cuando el ESP32 se conecta o desconecta.
-  StreamSubscription<BluetoothConnectionState>? _subscription;
-
+  // Escucha el estado de conexión.
+  StreamSubscription<BluetoothConnectionState>?
+      _subscription;
 
 
-
-  // Realiza la conexión con un dispositivo Bluetooth seleccionado.
-  // Recibe el BluetoothDevice encontrado durante el escaneo y establece la comunicación con el ESP32.
-  Future<void> conectar(BluetoothDevice device) async {
-
+  // Conecta un dispositivo BLE.
+  Future<void> conectar(
+      BluetoothDevice device) async {
 
     try {
 
+      // Si ya existe otro dispositivo conectado,
+      // se desconecta antes de conectar el nuevo.
+      if (state.device != null &&
+          state.device!.remoteId != device.remoteId) {
 
-      // Inicia la conexión Bluetooth.
+        await desconectar();
+      }
+
+
+      // Evita conectar nuevamente si ya está conectado.
+      if (state.device?.remoteId == device.remoteId &&
+          state.conectado) {
+
+        return;
+      }
+
+
+      // Cancela una suscripción anterior.
+      await _subscription?.cancel();
+      _subscription = null;
+
+
+      // Realiza la conexión.
       await device.connect();
 
 
-
-      // Actualiza el estado indicando que existe un dispositivo conectado.
+      // Guarda el dispositivo conectado.
       state = state.copyWith(
-
         device: device,
-
         conectado: true,
-
       );
 
 
+      // Escucha cambios en la conexión.
+      _subscription =
+          device.connectionState.listen((estado) {
 
-      // Cancela una escucha anterior para evitar múltiples suscripciones.
-      _subscription?.cancel();
+        if (estado ==
+            BluetoothConnectionState.connected) {
 
+          state = state.copyWith(
+            device: device,
+            conectado: true,
+          );
 
+        } else {
 
-      // Escucha cambios en la conexión del dispositivo.
-      // Si el ESP32 pierde conexión, la aplicación se actualiza automáticamente.
-      _subscription = device.connectionState.listen((estado) {
-
-
-        state = state.copyWith(
-
-          conectado:
-              estado == BluetoothConnectionState.connected,
-
-        );
-
-
+          // Si se desconecta, elimina también
+          // el dispositivo guardado.
+          state = state.copyWith(
+            conectado: false,
+            limpiarDevice: true,
+          );
+        }
       });
 
 
     } catch (error) {
 
+      // Si la conexión falla, dejamos el estado limpio.
+      state = const BluetoothState();
 
-      // Captura errores de conexión Bluetooth.
-      print(error);
+      print(
+        "Error al conectar Bluetooth: $error",
+      );
 
-
+      // Reenviamos el error para que la pantalla
+      // pueda mostrar un mensaje al usuario.
+      rethrow;
     }
-
   }
 
 
-
-
-
-  // Finaliza la conexión con el ESP32 y limpia el estado actual.
+  // Desconecta el dispositivo actual.
   Future<void> desconectar() async {
 
+    try {
 
-    // Comprueba si existe un dispositivo conectado.
-    if (state.device != null) {
+      // Cancela primero la escucha.
+      await _subscription?.cancel();
+      _subscription = null;
 
 
-      // Cierra la conexión Bluetooth.
-      await state.device!.disconnect();
+      // Desconecta el dispositivo.
+      if (state.device != null) {
 
+        await state.device!.disconnect();
+      }
+
+
+    } catch (error) {
+
+      print(
+        "Error al desconectar Bluetooth: $error",
+      );
+
+
+    } finally {
+
+      // Siempre dejamos el estado limpio.
+      state = const BluetoothState();
     }
-
-
-
-    // Detiene la escucha del estado de conexión.
-    await _subscription?.cancel();
-
-
-
-    // Restablece el estado inicial: sin dispositivo conectado.
-    state = const BluetoothState();
-
   }
 
+
+  // Libera los recursos cuando el provider deja de utilizarse.
+  @override
+  void dispose() {
+
+    _subscription?.cancel();
+
+    super.dispose();
+  }
 }
