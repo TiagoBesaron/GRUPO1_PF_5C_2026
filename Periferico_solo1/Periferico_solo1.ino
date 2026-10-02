@@ -10,7 +10,9 @@ Adafruit_NeoPixel tira(NUMPIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 bool luzEncendida = false;
 unsigned long inicioEntrenamiento = 0;
-uint8_t macCentral[6];
+
+// MAC Central preconfigurada
+uint8_t macCentral[] = {0x3C, 0x0F, 0x02, 0x86, 0x93, 0xF8};
 
 void apagarLeds() {
   for (int i = 0; i < NUMPIXELS; i++) tira.setPixelColor(i, 0, 0, 0);
@@ -39,12 +41,10 @@ void recibirESPNow(const esp_now_recv_info_t *info, const uint8_t *data, int len
   memcpy(mensaje, data, len);
   mensaje[len] = '\0';
 
-  memcpy(macCentral, info->src_addr, 6);
-
   if (strcmp(mensaje, "EMPEZAR") == 0) {
     inicioEntrenamiento = millis();
     luzEncendida = true;
-    encenderColor(0, 255, 0); // Encender en VERDE
+    encenderColor(0, 255, 0); // Verde
     Serial.println("Comando EMPEZAR recibido -> Luz encendida");
   }
 }
@@ -74,11 +74,11 @@ void loop() {
     if (digitalRead(SENSOR_PIN) == HIGH) {
       unsigned long tiempoReaccion = millis() - inicioEntrenamiento;
 
-      // 1. APAGAR LEDS DE INMEDIATO
+      // Apagado inmediato
       apagarLeds();
       luzEncendida = false;
 
-      // 2. Mando el tiempo a la Central
+      // Enviar respuesta a la Central
       String respuesta = "REACCION:" + String(tiempoReaccion);
       enviarAlCentral(respuesta.c_str());
 
