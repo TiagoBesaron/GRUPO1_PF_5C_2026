@@ -1,104 +1,69 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 
-
-
-// Pantalla de configuración de la aplicación.
-// Desde esta sección el usuario puede acceder a opciones
-// relacionadas con su cuenta y la gestión de la sesión.
 class SettingsScreen extends StatelessWidget {
-
   const SettingsScreen({super.key});
 
+  Future<void> _cerrarSesion(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+    if (context.mounted) {
+      context.go('/login');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-
+    final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-
-
-
-      // Barra superior de la pantalla de ajustes.
       appBar: AppBar(
-
-        title: const Text(
-          'Ajustes',
+        title: const Text('Ajustes'),
+        automaticallyImplyLeading: false,
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
+          children: [
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListTile(
+                leading: const CircleAvatar(
+                  child: Icon(Icons.person),
+                ),
+                title: Text(
+                  user?.displayName ?? 'Usuario',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(user?.email ?? 'Sin correo'),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Editar Perfil'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                context.push('/edit-profile');
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text(
+                'Cerrar Sesión',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onTap: () => _cerrarSesion(context),
+            ),
+          ],
         ),
-
       ),
-
-
-
-
-
-      body: Column(
-
-        mainAxisAlignment:
-            MainAxisAlignment.center,
-
-
-        children: [
-
-
-
-          // Botón que permite acceder a la edición
-          // de los datos personales del usuario.
-          // Utiliza GoRouter para cambiar de pantalla
-          // manteniendo una navegación organizada.
-          ElevatedButton(
-
-            onPressed:(){
-
-
-              context.push('/editProfile');
-
-
-            },
-
-
-            child:const Text(
-              'Editar perfil',
-            ),
-
-
-          ),
-
-
-
-
-
-          // Botón para cerrar la sesión actual.
-          // Actualmente solamente vuelve a la pantalla
-          // de inicio de sesión.
-          ElevatedButton(
-
-            onPressed:(){
-
-
-              context.go('/login');
-
-
-            },
-
-
-            child:const Text(
-              'Cerrar sesión',
-            ),
-
-
-          ),
-
-
-        ],
-
-
-      ),
-
-
     );
-
-
   }
-
 }
