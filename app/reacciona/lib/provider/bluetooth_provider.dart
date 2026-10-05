@@ -1,179 +1,142 @@
 import 'dart:async';
-
+import 'dart:convert';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 
+final Guid serviceUuid = Guid("4FA8691A-0393-40A3-974F-0759E09F114D");
+final Guid characteristicUuidRx = Guid("87B54DBA-055B-4321-8525-2B2A239385C7"); // Escritura a ESP32
+final Guid characteristicUuidTx = Guid("D7B54DBA-055B-4321-8525-2B2A239385C8"); // Notificación desde ESP32
 
-// Provider global encargado de administrar el estado Bluetooth.
 final bluetoothProvider =
     StateNotifierProvider<BluetoothNotifier, BluetoothState>(
   (ref) => BluetoothNotifier(),
 );
 
-
-// Estado actual de Bluetooth.
 class BluetoothState {
-
   final BluetoothDevice? device;
-
   final bool conectado;
-
+  final String ultimoTiempo;
+  final BluetoothCharacteristic? characteristicRx;
 
   const BluetoothState({
     this.device,
     this.conectado = false,
+    this.ultimoTiempo = "0.000 s",
+    this.characteristicRx,
   });
-
 
   BluetoothState copyWith({
     BluetoothDevice? device,
     bool? conectado,
+    String? ultimoTiempo,
+    BluetoothCharacteristic? characteristicRx,
     bool limpiarDevice = false,
   }) {
-
     return BluetoothState(
-
-      device: limpiarDevice
-          ? null
-          : device ?? this.device,
-
-      conectado:
-          conectado ?? this.conectado,
+      device: limpiarDevice ? null : device ?? this.device,
+      conectado: conectado ?? this.conectado,
+      ultimoTiempo: ultimoTiempo ?? this.ultimoTiempo,
+      characteristicRx: characteristicRx ?? this.characteristicRx,
     );
   }
 }
 
+class BluetoothNotifier extends StateNotifier<BluetoothState> {
+  BluetoothNotifier() : super(const BluetoothState());
 
-// Controlador encargado de administrar la conexión Bluetooth.
-class BluetoothNotifier
-    extends StateNotifier<BluetoothState> {
+  StreamSubscription<BluetoothConnectionState>? _subscription;
+  StreamSubscription<List<int>>? _notifySubscription;
 
-  BluetoothNotifier()
-      : super(const BluetoothState());
-
-
-  // Escucha el estado de conexión.
-  StreamSubscription<BluetoothConnectionState>?
-      _subscription;
-
-
-  // Conecta un dispositivo BLE.
-  Future<void> conectar(
-      BluetoothDevice device) async {
-
+  Future<void> conectar(BluetoothDevice device) async {
     try {
-
-      // Si ya existe otro dispositivo conectado,
-      // se desconecta antes de conectar el nuevo.
-      if (state.device != null &&
-          state.device!.remoteId != device.remoteId) {
-
+      if (state.device != null && state.device!.remoteId != device.remoteId) {
         await desconectar();
       }
 
-
-      // Evita conectar nuevamente si ya está conectado.
-      if (state.device?.remoteId == device.remoteId &&
-          state.conectado) {
-
-        return;
-      }
-
-
-      // Cancela una suscripción anterior.
-      await _subscription?.cancel();
-      _subscription = null;
-
-
-      // Realiza la conexión.
       await device.connect();
 
+      List<BluetoothService> services = await device.discoverServices();
+      BluetoothCharacteristic? rxChar;
 
-      // Guarda el dispositivo conectado.
+      for (var service in services) {
+        if (service.uuid == serviceUuid) {
+          for (var char in service.characteristics) {
+            // Suscribirse a Notificaciones (Lecturas del ESP32)
+            if (char.uuid == characteristicUuidTx) {
+              await char.setNotifyValue(true);
+              _notifySubscription = char.lastValueStream.listen((value) async {
+                String mensaje = utf8.decode(value);
+                if (mensaje.startsWith("REACCION:")) {
+                  String msStr = mensaje.replaceAll("REACCION:", "");
+                  int ms = int.tryParse(msStr) ?? 0;
+                  double segundos = ms / 1000.0;
+
+                  state = state.copyWith(
+                    ultimoTiempo: "${segundos.toStringAsFixed(3)} s",
+                  );
+
+                  // Guardar en Firebase directamente bajo el usuario autenticado
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null) {
+                    final ref = FirebaseDatabase.instance.ref("usuarios/${user.uid}/tiempos");
+                    await ref.push().set({
+                      "tiempo_ms": ms,
+                      "tiempo_seg": segundos,
+                      "timestamp": ServerValue.timestamp,
+                    });
+                  }
+                }
+              });
+            }
+            // Guardar característica para enviar órdenes al ESP32
+            if (char.uuid == characteristicUuidRx) {
+              rxChar = char;
+            }
+          }
+        }
+      }
+
       state = state.copyWith(
         device: device,
         conectado: true,
+        characteristicRx: rxChar,
       );
 
-
-      // Escucha cambios en la conexión.
-      _subscription =
-          device.connectionState.listen((estado) {
-
-        if (estado ==
-            BluetoothConnectionState.connected) {
-
-          state = state.copyWith(
-            device: device,
-            conectado: true,
-          );
-
-        } else {
-
-          // Si se desconecta, elimina también
-          // el dispositivo guardado.
-          state = state.copyWith(
-            conectado: false,
-            limpiarDevice: true,
-          );
+      _subscription = device.connectionState.listen((estado) {
+        if (estado != BluetoothConnectionState.connected) {
+          desconectar();
         }
       });
-
-
     } catch (error) {
-
-      // Si la conexión falla, dejamos el estado limpio.
       state = const BluetoothState();
-
-      print(
-        "Error al conectar Bluetooth: $error",
-      );
-
-      // Reenviamos el error para que la pantalla
-      // pueda mostrar un mensaje al usuario.
       rethrow;
     }
   }
 
+  Future<void> enviarComando(String comando) async {
+    if (state.conectado && state.characteristicRx != null) {
+      await state.characteristicRx!.write(utf8.encode(comando));
+    }
+  }
 
-  // Desconecta el dispositivo actual.
   Future<void> desconectar() async {
-
     try {
-
-      // Cancela primero la escucha.
+      await _notifySubscription?.cancel();
       await _subscription?.cancel();
-      _subscription = null;
-
-
-      // Desconecta el dispositivo.
       if (state.device != null) {
-
         await state.device!.disconnect();
       }
-
-
-    } catch (error) {
-
-      print(
-        "Error al desconectar Bluetooth: $error",
-      );
-
-
     } finally {
-
-      // Siempre dejamos el estado limpio.
       state = const BluetoothState();
     }
   }
 
-
-  // Libera los recursos cuando el provider deja de utilizarse.
   @override
   void dispose() {
-
+    _notifySubscription?.cancel();
     _subscription?.cancel();
-
     super.dispose();
   }
 }

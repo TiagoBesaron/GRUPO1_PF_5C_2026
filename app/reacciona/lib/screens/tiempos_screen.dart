@@ -1,72 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 
-
-
-// Pantalla encargada de mostrar el historial de tiempos
-// obtenidos durante las sesiones de entrenamiento.
-// Actualmente utiliza datos simulados
 class TiemposScreen extends StatelessWidget {
-
   const TiemposScreen({super.key});
-
 
   @override
   Widget build(BuildContext context) {
-
+    final user = FirebaseAuth.instance.currentUser;
+    final ref = FirebaseDatabase.instance.ref("usuarios/${user?.uid}/tiempos");
 
     return Scaffold(
+      appBar: AppBar(title: const Text('Historial de Tiempos')),
+      body: StreamBuilder(
+        stream: ref.onValue,
+        builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
+          if (!snapshot.hasData || snapshot.data?.snapshot.value == null) {
+            return const Center(child: Text("Aún no tienes tiempos registrados"));
+          }
 
+          Map<dynamic, dynamic> map = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+          List<Map<String, dynamic>> lista = [];
 
-      // Barra superior de la pantalla de tiempos.
-      appBar: AppBar(
+          map.forEach((key, value) {
+            lista.add(Map<String, dynamic>.from(value));
+          });
 
-        title: const Text(
-          'Tiempos',
-        ),
+          // Ordenar por más reciente
+          lista.sort((a, b) => (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0));
 
-      ),
-
-
-
-
-
-      // Lista donde se mostrarán los registros
-      // de tiempos realizados por el usuario.
-      body: ListView.builder(
-
-
-
-        // Cantidad actual de elementos de prueba.
-        // Posteriormente dependerá de la cantidad
-        // de entrenamientos almacenados.
-        itemCount:5,
-
-
-
-        itemBuilder:(context,index){
-
-
-
-          // Cada elemento representa un registro
-          // individual de entrenamiento.
-          return ListTile(
-
-            title:Text(
-              'Tiempo ${index + 1}',
-            ),
-
+          return ListView.builder(
+            itemCount: lista.length,
+            itemBuilder: (context, index) {
+              final item = lista[index];
+              return ListTile(
+                leading: const Icon(Icons.timer, color: Colors.blue),
+                title: Text("${item['tiempo_seg']} segundos"),
+                subtitle: Text("${item['tiempo_ms']} ms"),
+              );
+            },
           );
-
-
         },
-
       ),
-
-
     );
-
-
   }
-
 }

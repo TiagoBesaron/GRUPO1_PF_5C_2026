@@ -1,166 +1,79 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 
-
-// Pantalla inicial de acceso a la aplicación.
-// Permite al usuario ingresar sus credenciales antes
-// de acceder al sistema LED Trainer.
-class LoginScreen extends StatelessWidget {
-
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final emailCtrl = TextEditingController();
+  final passCtrl = TextEditingController();
+  bool cargando = false;
+
+  Future<void> iniciarSesion() async {
+    if (emailCtrl.text.trim().isEmpty || passCtrl.text.trim().isEmpty) return;
+
+    setState(() => cargando = true);
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: emailCtrl.text.trim(),
+        password: passCtrl.text.trim(),
+      );
+      if (mounted) context.go('/home');
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? "Error de autenticación")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => cargando = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-
-
-    // Controladores encargados de obtener la información
-    // ingresada por el usuario en los campos de texto.
-    // Actualmente la validación es simulada.
-    // En una versión final se pueden utilizar para validar
-    // usuarios mediante Firebase.
-    final email = TextEditingController();
-
-    final pass = TextEditingController();
-
-
-
     return Scaffold(
-
-
-      body: Center(
-
-
-        child: Column(
-
-          mainAxisAlignment:
-              MainAxisAlignment.center,
-
-
-          children: [
-
-
-
-            // Título principal de la pantalla.
-            const Text(
-
-              'Iniciar sesión',
-
-              style: TextStyle(
-
-                fontSize:30,
-
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('LED Trainer', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 30),
+              TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
               ),
-
-            ),
-
-
-
-            const SizedBox(height:20),
-
-
-
-
-            // Campo donde el usuario ingresa su correo electrónico.
-            TextField(
-
-              controller: email,
-
-
-              decoration: const InputDecoration(
-
-                hintText:'Email',
-
-                border:OutlineInputBorder(),
-
+              const SizedBox(height: 15),
+              TextField(
+                controller: passCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder()),
               ),
-
-            ),
-
-
-
-
-            const SizedBox(height:20),
-
-
-
-
-
-            // Campo donde el usuario ingresa su contraseña.
-            TextField(
-
-              controller: pass,
-
-
-              decoration: const InputDecoration(
-
-                hintText:'Contraseña',
-
-                border:OutlineInputBorder(),
-
+              const SizedBox(height: 25),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: cargando ? null : iniciarSesion,
+                  child: cargando ? const CircularProgressIndicator() : const Text('Ingresar'),
+                ),
               ),
-
-            ),
-
-
-
-
-            const SizedBox(height:20),
-
-
-
-
-
-            // Botón de ingreso.
-            // Actualmente solamente redirige a la pantalla principal.
-            ElevatedButton(
-
-              onPressed:(){
-
-
-                context.go('/home');
-
-
-              },
-
-
-              child:
-                  const Text('Ingresar'),
-
-            ),
-
-
-
-
-            // Permite acceder a la pantalla de registro
-            // cuando el usuario todavía no posee una cuenta.
-            TextButton(
-
-              onPressed:(){
-
-
-                context.go('/register');
-
-
-              },
-
-
-              child:
-                  const Text('Registrarse'),
-
-            ),
-
-
-          ],
-
+              TextButton(
+                onPressed: () => context.go('/register'),
+                child: const Text('¿No tienes cuenta? Regístrate'),
+              ),
+            ],
+          ),
         ),
-
       ),
-
-
     );
-
-
   }
-
 }
