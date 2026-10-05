@@ -17,12 +17,13 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // --- REEMPLAZÁ CON TUS DATOS DE FIREBASE ---
+  // REEMPLAZÁ CON TUS DATOS REALES DE FIREBASE
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AQUI_TU_API_KEY',
-    appId: '1:123456789:android:abcdef',
-    messagingSenderId: '123456789',
-    projectId: 'tu-proyecto-id',
+    apiKey: 'AIzaSyB1vdZWLxmgbU74BZwmHlV9ll1zAFuy1Sk',
+    appId: '1:481993883697:web:b141465562871624605510',
+    messagingSenderId: '481993883697',
+    projectId: 'g1-pf-5c-2026',
+    databaseURL: 'https://tu-proyecto-id-default-rtdb.firebaseio.com',
   );
 
   static const FirebaseOptions web = FirebaseOptions(
@@ -30,5 +31,6 @@ class DefaultFirebaseOptions {
     appId: '1:481993883697:web:b141465562871624605510',
     messagingSenderId: '481993883697',
     projectId: 'g1-pf-5c-2026',
+    databaseURL: 'https://tu-proyecto-id-default-rtdb.firebaseio.com',
   );
 }

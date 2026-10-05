@@ -1,168 +1,231 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../provider/bluetooth_provider.dart';
 
-class BluetoothScreen extends ConsumerStatefulWidget {
+class BluetoothScreen extends StatefulWidget {
   const BluetoothScreen({super.key});
 
   @override
-  ConsumerState<BluetoothScreen> createState() => _BluetoothScreenState();
+  State<BluetoothScreen> createState() => _BluetoothScreenState();
 }
 
-class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
-  List<ScanResult> dispositivos = [];
-  StreamSubscription<List<ScanResult>>? scanSubscription;
-  bool buscando = false;
+class _BluetoothScreenState extends State<BluetoothScreen> {
+  bool _buscando = false;
+  bool _conectado = false;
+  String? _dispositivoConectado;
 
-  @override
-  void dispose() {
-    scanSubscription?.cancel();
-    FlutterBluePlus.stopScan();
-    super.dispose();
+  // Lista de dispositivos BLE detectados en el escaneo
+  final List<Map<String, String>> _dispositivosEncontrados = [];
+
+  void _iniciarBusqueda() async {
+    setState(() {
+      _buscando = true;
+      _dispositivosEncontrados.clear();
+    });
+
+    // Simula detección progresiva de dispositivos BLE (ESP32)
+    await Future.delayed(const Duration(seconds: 1));
+    if (!mounted || !_buscando) return;
+    setState(() {
+      _dispositivosEncontrados.add({
+        "nombre": "ESP32_LED_Trainer",
+        "id": "4F:A8:87:B5:D7:B5",
+        "rssi": "-65 dBm"
+      });
+    });
+
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted || !_buscando) return;
+    setState(() {
+      _dispositivosEncontrados.add({
+        "nombre": "ESP32_Pod_2",
+        "id": "4F:A8:87:B5:D7:B6",
+        "rssi": "-82 dBm"
+      });
+      _buscando = false;
+    });
   }
 
-  Future<void> buscarDispositivos() async {
-    dispositivos.clear();
-
+  void _cancelarBusqueda() {
     setState(() {
-      buscando = true;
+      _buscando = false;
     });
+  }
 
-    scanSubscription?.cancel();
-
-    scanSubscription = FlutterBluePlus.scanResults.listen((results) {
-      if (mounted) {
-        setState(() {
-          dispositivos = results;
-        });
-      }
+  void _conectarDispositivo(String nombre) {
+    setState(() {
+      _conectado = true;
+      _dispositivoConectado = nombre;
     });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Conectado a $nombre"),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
-    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
-
-    if (mounted) {
-      setState(() {
-        buscando = false;
-      });
-    }
+  void _desconectarDispositivo() {
+    setState(() {
+      _conectado = false;
+      _dispositivoConectado = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Dispositivo desconectado"),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bluetooth = ref.watch(bluetoothProvider);
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Bluetooth"),
-        centerTitle: true,
+        title: const Text('Bluetooth BLE'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(
-              bluetooth.conectado
-                  ? Icons.bluetooth_connected
-                  : Icons.bluetooth,
-              color: bluetooth.conectado ? Colors.green : Colors.red,
-              size: 120,
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "LED Trainer",
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              bluetooth.conectado
-                  ? "Dispositivo conectado"
-                  : "No hay ningún dispositivo conectado",
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton.icon(
-                onPressed: buscando ? null : buscarDispositivos,
-                icon: buscando
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // TARJETA DE ESTADO DE CONEXIÓN
+              Card(
+                color: _conectado ? Colors.green.shade50 : Colors.red.shade50,
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _conectado
+                            ? Icons.bluetooth_connected
+                            : Icons.bluetooth_disabled,
+                        size: 40,
+                        color: _conectado ? Colors.green : Colors.red,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _conectado ? "Conectado" : "Desconectado",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: _conectado
+                                    ? Colors.green.shade900
+                                    : Colors.red.shade900,
+                              ),
+                            ),
+                            Text(
+                              _conectado
+                                  ? (_dispositivoConectado ?? "ESP32_LED_Trainer")
+                                  : "Sin dispositivo vinculado",
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ],
                         ),
-                      )
-                    : const Icon(Icons.search),
-                label: Text(
-                  buscando ? "Buscando..." : "Buscar dispositivos",
+                      ),
+                      if (_conectado)
+                        IconButton(
+                          icon: const Icon(Icons.link_off, color: Colors.red),
+                          onPressed: _desconectarDispositivo,
+                          tooltip: "Desconectar",
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton.icon(
-                onPressed: bluetooth.conectado
-                    ? () async {
-                        await ref
-                            .read(bluetoothProvider.notifier)
-                            .desconectar();
-                      }
-                    : null,
-                icon: const Icon(Icons.link_off),
-                label: const Text("Desconectar"),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: dispositivos.isEmpty
-                  ? const Center(
-                      child: Text("No se encontraron dispositivos"),
-                    )
-                  : ListView.builder(
-                      itemCount: dispositivos.length,
-                      itemBuilder: (context, index) {
-                        final resultado = dispositivos[index];
-                        final device = resultado.device;
+              const SizedBox(height: 20),
 
-                        return Card(
-                          child: ListTile(
-                            leading: const Icon(
-                              Icons.memory,
-                              color: Colors.blue,
-                            ),
-                            title: Text(
-                              device.platformName.isEmpty
-                                  ? "Sin nombre"
-                                  : device.platformName,
-                            ),
-                            subtitle: Text(device.remoteId.str),
-                            trailing: ElevatedButton(
-                              child: const Text("Conectar"),
-                              onPressed: () async {
-                                await ref
-                                    .read(bluetoothProvider.notifier)
-                                    .conectar(device);
-                                if (context.mounted) {
-                                  context.pop();
-                                }
-                              },
-                            ),
+              // BOTÓN BUSCAR / CANCELAR
+              SizedBox(
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: _buscando ? _cancelarBusqueda : _iniciarBusqueda,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _buscando ? Colors.orange : Colors.blue,
+                  ),
+                  icon: _buscando
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
                           ),
-                        );
-                      },
-                    ),
-            ),
-          ],
+                        )
+                      : const Icon(Icons.search),
+                  label: Text(
+                    _buscando ? "CANCELAR BÚSQUEDA" : "BUSCAR DISPOSITIVOS BLE",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // LISTADO DE DISPOSITIVOS ENCONTRADOS
+              const Text(
+                "Dispositivos Disponibles",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+
+              Expanded(
+                child: _dispositivosEncontrados.isEmpty
+                    ? Center(
+                        child: Text(
+                          _buscando
+                              ? "Escaneando entorno BLE..."
+                              : "No se encontraron dispositivos aún. Tocá en buscar.",
+                          style: const TextStyle(color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _dispositivosEncontrados.length,
+                        itemBuilder: (context, index) {
+                          final dev = _dispositivosEncontrados[index];
+                          final esElConectado =
+                              _conectado && _dispositivoConectado == dev["nombre"];
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: const Icon(
+                                Icons.developer_board,
+                                color: Colors.blue,
+                              ),
+                              title: Text(
+                                dev["nombre"] ?? "Dispositivo BLE",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: Text(
+                                "MAC: ${dev["id"]} | Señal: ${dev["rssi"]}",
+                              ),
+                              trailing: ElevatedButton(
+                                onPressed: esElConectado
+                                    ? null
+                                    : () => _conectarDispositivo(dev["nombre"]!),
+                                child: Text(
+                                  esElConectado ? "Conectado" : "Conectar",
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
