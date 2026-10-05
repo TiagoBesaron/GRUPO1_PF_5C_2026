@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import '../../screens/login_screen.dart';
 import '../../screens/register_screen.dart';
 import '../../screens/home_screen.dart';
+import '../../screens/bluetooth_screen.dart';
 import '../../screens/config_entrenamiento_screen.dart';
 import '../../screens/entrenamiento_activo_screen.dart';
 import '../../screens/tiempos_screen.dart';
@@ -20,6 +21,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/home',
       builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: '/bluetooth',
+      builder: (context, state) => const BluetoothScreen(),
     ),
     GoRoute(
       path: '/config_entrenamiento',
