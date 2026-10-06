@@ -8,43 +8,114 @@ class TiemposScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final ref = FirebaseDatabase.instance.ref("usuarios/${user?.uid}/tiempos");
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Historial de Tiempos')),
-      body: StreamBuilder(
-        stream: ref.onValue,
-        builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      appBar: AppBar(
+        title: const Text('Historial de Tiempos'),
+        automaticallyImplyLeading: false,
+      ),
+      body: SafeArea(
+        child: user == null
+            ? const Center(child: Text("Debes iniciar sesión para ver tus tiempos"))
+            : StreamBuilder<DatabaseEvent>(
+                stream: FirebaseDatabase.instance
+                    .ref('usuarios/${user.uid}/tiempos')
+                    .onValue,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
 
-          if (!snapshot.hasData || snapshot.data?.snapshot.value == null) {
-            return const Center(child: Text("Aún no tienes tiempos registrados"));
-          }
+                  if (snapshot.hasError) {
+                    return const Center(
+                      child: Text("Ocurrió un error al cargar los datos"),
+                    );
+                  }
 
-          Map<dynamic, dynamic> map = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
-          List<Map<String, dynamic>> lista = [];
+                  final data = snapshot.data?.snapshot.value;
 
-          map.forEach((key, value) {
-            lista.add(Map<String, dynamic>.from(value));
-          });
+                  if (data == null) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.timer_off_outlined,
+                            size: 64,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            "Aún no tenés registros de entrenamiento.",
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            "Realizá una sesión para ver tus resultados acá.",
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
 
-          // Ordenar por más reciente
-          lista.sort((a, b) => (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0));
+                  final Map<dynamic, dynamic> mapTiempos =
+                      data as Map<dynamic, dynamic>;
+                  final List<Map<String, dynamic>> listaHistorial = [];
 
-          return ListView.builder(
-            itemCount: lista.length,
-            itemBuilder: (context, index) {
-              final item = lista[index];
-              return ListTile(
-                leading: const Icon(Icons.timer, color: Colors.blue),
-                title: Text("${item['tiempo_seg']} segundos"),
-                subtitle: Text("${item['tiempo_ms']} ms"),
-              );
-            },
-          );
-        },
+                  mapTiempos.forEach((key, value) {
+                    if (value is Map) {
+                      listaHistorial.add({
+                        "id": key,
+                        "tiempoMs": value["tiempoMs"] ?? 0,
+                        "fecha": value["fecha"] ?? "Fecha no registrada",
+                      });
+                    }
+                  });
+
+                  // Invertir la lista para mostrar los registros más recientes arriba
+                  final historialInvertido = listaHistorial.reversed.toList();
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: historialInvertido.length,
+                    itemBuilder: (context, index) {
+                      final item = historialInvertido[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.amber.shade100,
+                            child: const Icon(Icons.bolt, color: Colors.amber),
+                          ),
+                          title: Text(
+                            "Intento #${historialInvertido.length - index}",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text("${item["fecha"]}"),
+                          trailing: Text(
+                            "${item["tiempoMs"]} ms",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: Colors.blueAccent,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
       ),
     );
   }

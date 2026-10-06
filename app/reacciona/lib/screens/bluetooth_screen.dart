@@ -12,7 +12,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   bool _conectado = false;
   String? _dispositivoConectado;
 
-  // Lista de dispositivos BLE detectados en el escaneo
+  // Lista de dispositivos BLE detectados
   final List<Map<String, String>> _dispositivosEncontrados = [];
 
   void _iniciarBusqueda() async {
@@ -21,26 +21,13 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
       _dispositivosEncontrados.clear();
     });
 
-    // Simula detección progresiva de dispositivos BLE (ESP32)
-    await Future.delayed(const Duration(seconds: 1));
-    if (!mounted || !_buscando) return;
-    setState(() {
-      _dispositivosEncontrados.add({
-        "nombre": "ESP32_LED_Trainer",
-        "id": "4F:A8:87:B5:D7:B5",
-        "rssi": "-65 dBm"
-      });
-    });
+    // Simulamos un escaneo de 3 segundos sin inventar dispositivos falsos
+    await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
 
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted || !_buscando) return;
     setState(() {
-      _dispositivosEncontrados.add({
-        "nombre": "ESP32_Pod_2",
-        "id": "4F:A8:87:B5:D7:B6",
-        "rssi": "-82 dBm"
-      });
       _buscando = false;
+      // Aquí se completará con la lista real cuando integres 'flutter_blue_plus'
     });
   }
 
@@ -125,7 +112,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
                             ),
                             Text(
                               _conectado
-                                  ? (_dispositivoConectado ?? "ESP32_LED_Trainer")
+                                  ? (_dispositivoConectado ?? "ESP32 Vinculado")
                                   : "Sin dispositivo vinculado",
                               style: const TextStyle(fontSize: 14),
                             ),
@@ -182,8 +169,8 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
                     ? Center(
                         child: Text(
                           _buscando
-                              ? "Escaneando entorno BLE..."
-                              : "No se encontraron dispositivos aún. Tocá en buscar.",
+                              ? "Buscando dispositivos BLE cercanos..."
+                              : "No se encontraron dispositivos. Encendé tu ESP32 y tocá en buscar.",
                           style: const TextStyle(color: Colors.grey),
                           textAlign: TextAlign.center,
                         ),

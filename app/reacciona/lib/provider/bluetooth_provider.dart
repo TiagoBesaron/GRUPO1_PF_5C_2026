@@ -5,9 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
-final Guid serviceUuid = Guid("4FA8691A-0393-40A3-974F-0759E09F114D");
-final Guid characteristicUuidRx = Guid("87B54DBA-055B-4321-8525-2B2A239385C7"); // Escritura a ESP32
-final Guid characteristicUuidTx = Guid("D7B54DBA-055B-4321-8525-2B2A239385C8"); // Notificación desde ESP32
+// UUIDs en minúsculas para compatibilidad estándar de Flutter Blue Plus
+final Guid serviceUuid = Guid("4fa8691a-0393-40a3-974f-0759e09f114d");
+final Guid characteristicUuidRx = Guid("87b54dba-055b-4321-8525-2b2a239385c7"); // Escritura a ESP32
+final Guid characteristicUuidTx = Guid("d7b54dba-055b-4321-8525-2b2a239385c8"); // Notificación desde ESP32
 
 final bluetoothProvider =
     StateNotifierProvider<BluetoothNotifier, BluetoothState>(
@@ -66,7 +67,8 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
             // Suscribirse a Notificaciones (Lecturas del ESP32)
             if (char.uuid == characteristicUuidTx) {
               await char.setNotifyValue(true);
-              _notifySubscription = char.lastValueStream.listen((value) async {
+
+              _notifySubscription = char.onValueReceived.listen((value) async {
                 String mensaje = utf8.decode(value);
                 if (mensaje.startsWith("REACCION:")) {
                   String msStr = mensaje.replaceAll("REACCION:", "");
@@ -80,10 +82,11 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
                   // Guardar en Firebase directamente bajo el usuario autenticado
                   final user = FirebaseAuth.instance.currentUser;
                   if (user != null) {
-                    final ref = FirebaseDatabase.instance.ref("usuarios/${user.uid}/tiempos");
+                    final ref = FirebaseDatabase.instance
+                        .ref("usuarios/${user.uid}/tiempos");
                     await ref.push().set({
-                      "tiempo_ms": ms,
-                      "tiempo_seg": segundos,
+                      "tiempoMs": ms,
+                      "tiempoSeg": segundos,
                       "timestamp": ServerValue.timestamp,
                     });
                   }
@@ -128,6 +131,8 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
       if (state.device != null) {
         await state.device!.disconnect();
       }
+    } catch (_) {
+      // Ignora errores si ya estaba desconectado
     } finally {
       state = const BluetoothState();
     }
@@ -137,6 +142,5 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
   void dispose() {
     _notifySubscription?.cancel();
     _subscription?.cancel();
-    super.dispose();
   }
 }

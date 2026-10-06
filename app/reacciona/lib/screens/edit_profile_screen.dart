@@ -38,7 +38,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
+        // Actualiza el nombre y recarga la instancia para refrescar la app
         await user.updateDisplayName(_nombreController.text.trim());
+        await user.reload();
       }
 
       if (mounted) {
