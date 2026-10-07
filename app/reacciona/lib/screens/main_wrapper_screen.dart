@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import 'bluetooth_screen.dart';
 import 'tiempos_screen.dart';
 import 'settings_screen.dart';
 
@@ -15,8 +16,9 @@ class _MainWrapperScreenState extends State<MainWrapperScreen> {
 
   final List<Widget> _screens = const [
     HomeScreen(),
+    BluetoothScreen(),
     TiemposScreen(),
-    AjustesScreen(), // Se usa AjustesScreen en vez de SettingsScreen
+    SettingsScreen(),
   ];
 
   @override
@@ -26,27 +28,32 @@ class _MainWrapperScreenState extends State<MainWrapperScreen> {
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (int index) {
           setState(() {
             _currentIndex = index;
           });
         },
-        items: const [
-          BottomNavigationBarItem(
+        destinations: const [
+          NavigationDestination(
             icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
+            selectedIcon: Icon(Icons.home),
             label: 'Inicio',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history_outlined),
-            activeIcon: Icon(Icons.history),
+          NavigationDestination(
+            icon: Icon(Icons.bluetooth_outlined),
+            selectedIcon: Icon(Icons.bluetooth),
+            label: 'Bluetooth',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
             label: 'Historial',
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
+            selectedIcon: Icon(Icons.settings),
             label: 'Ajustes',
           ),
         ],

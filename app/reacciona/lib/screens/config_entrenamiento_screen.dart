@@ -1,92 +1,59 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 enum ModoEntrenamiento { rondas, tiempo }
 
-class ConfigEntrenamientoScreen extends StatefulWidget {
-  final bool isEsp32Connected;
-
-  const ConfigEntrenamientoScreen({
-    super.key,
-    this.isEsp32Connected = false,
-  });
+class ConfigEntrenamientoScreen extends ConsumerStatefulWidget {
+  const ConfigEntrenamientoScreen({super.key});
 
   @override
-  State<ConfigEntrenamientoScreen> createState() =>
+  ConsumerState<ConfigEntrenamientoScreen> createState() =>
       _ConfigEntrenamientoScreenState();
 }
 
 class _ConfigEntrenamientoScreenState
-    extends State<ConfigEntrenamientoScreen> {
+    extends ConsumerState<ConfigEntrenamientoScreen> {
   ModoEntrenamiento _modo = ModoEntrenamiento.rondas;
-  int _rondas = 5;
+  int _rondas = 10;
   int _tiempoLimiteSeg = 30;
   String _colorSeleccionado = 'Verde';
 
-  final List<Map<String, dynamic>> _coloresDisponibles = [
-    {'nombre': 'Verde', 'color': Colors.green},
-    {'nombre': 'Rojo', 'color': Colors.red},
-    {'nombre': 'Azul', 'color': Colors.blue},
-    {'nombre': 'Amarillo', 'color': Colors.amber},
-    {'nombre': 'Aleatorio', 'color': Colors.purpleAccent},
+  final List<String> _coloresDisponibles = [
+    'Verde',
+    'Rojo',
+    'Azul',
+    'Amarillo',
+    'Aleatorio'
   ];
 
-  void _iniciarRutina() {
-    if (!widget.isEsp32Connected) {
-      _mostrarAdvertenciaDesconectado();
-    } else {
-      _navegarAEntrenamiento();
-    }
-  }
-
   void _navegarAEntrenamiento() {
+    List<int> rgbBase;
+    switch (_colorSeleccionado) {
+      case 'Rojo':
+        rgbBase = [255, 0, 0];
+        break;
+      case 'Azul':
+        rgbBase = [0, 0, 255];
+        break;
+      case 'Amarillo':
+        rgbBase = [255, 255, 0];
+        break;
+      case 'Verde':
+      default:
+        rgbBase = [0, 255, 0];
+        break;
+    }
+
     final config = {
       'modo': _modo == ModoEntrenamiento.rondas ? 'rondas' : 'tiempo',
-      'valor': _modo == ModoEntrenamiento.rondas ? _rondas : _tiempoLimiteSeg,
-      'color': _colorSeleccionado,
+      'rondasTotal': _modo == ModoEntrenamiento.rondas ? _rondas : 5,
+      'tiempoLimiteSeg': _tiempoLimiteSeg,
+      'colorAleatorio': _colorSeleccionado == 'Aleatorio',
+      'rgbBase': rgbBase,
     };
 
     context.push('/entrenamiento-activo', extra: config);
-  }
-
-  void _mostrarAdvertenciaDesconectado() {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        icon: const Icon(
-          Icons.bluetooth_disabled,
-          color: Colors.redAccent,
-          size: 48,
-        ),
-        title: const Text(
-          'ESP32 Desconectado',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'El dispositivo ESP32 no está conectado por Bluetooth.\n\n¿Deseás conectarlo ahora o iniciar en modo prueba?',
-          textAlign: TextAlign.center,
-        ),
-        actionsAlignment: MainAxisAlignment.spaceEvenly,
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              _navegarAEntrenamiento(); // Inicia la rutina en modo prueba
-            },
-            child: const Text('Modo Prueba'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              context.push('/bluetooth');
-            },
-            icon: const Icon(Icons.bluetooth_searching, size: 18),
-            label: const Text('Conectar'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -94,167 +61,196 @@ class _ConfigEntrenamientoScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Configurar Entrenamiento'),
+        centerTitle: true,
+        elevation: 2,
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                "Ajustes de la Sesión",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Selecciona el Modo',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(height: 20),
-
-              // SELECTOR DE MODO
-              const Text(
-                "Modalidad de objetivo:",
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(height: 10),
-              SegmentedButton<ModoEntrenamiento>(
-                segments: const [
-                  ButtonSegment<ModoEntrenamiento>(
-                    value: ModoEntrenamiento.rondas,
-                    label: Text('Por Rondas'),
-                    icon: Icon(Icons.flag_outlined),
-                  ),
-                  ButtonSegment<ModoEntrenamiento>(
-                    value: ModoEntrenamiento.tiempo,
-                    label: Text('Por Tiempo'),
-                    icon: Icon(Icons.timer_outlined),
-                  ),
-                ],
-                selected: {_modo},
-                onSelectionChanged: (Set<ModoEntrenamiento> newSelection) {
-                  setState(() {
-                    _modo = newSelection.first;
-                  });
+              child: RadioGroup<ModoEntrenamiento>(
+                groupValue: _modo,
+                onChanged: (val) {
+                  if (val != null) setState(() => _modo = val);
                 },
-              ),
-              const SizedBox(height: 24),
-
-              // CONTADOR DINÁMICO
-              if (_modo == ModoEntrenamiento.rondas) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text("Número de rondas:",
-                        style: TextStyle(fontSize: 16)),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline),
-                          onPressed: _rondas > 1
-                              ? () => setState(() => _rondas--)
-                              : null,
-                        ),
-                        Text(
-                          "$_rondas",
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline),
-                          onPressed: () => setState(() => _rondas++),
-                        ),
-                      ],
+                child: Column(
+                  children: const [
+                    RadioListTile<ModoEntrenamiento>(
+                      title: Text('Por Rondas'),
+                      subtitle: Text('Completa un número fijo de toques'),
+                      value: ModoEntrenamiento.rondas,
+                    ),
+                    Divider(height: 1),
+                    RadioListTile<ModoEntrenamiento>(
+                      title: Text('Por Tiempo'),
+                      subtitle: Text('Toca la mayor cantidad antes de que venza el tiempo'),
+                      value: ModoEntrenamiento.tiempo,
                     ),
                   ],
                 ),
-              ] else ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              _modo == ModoEntrenamiento.rondas
+                  ? 'Parámetros de Rondas'
+                  : 'Parámetros de Tiempo',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Tiempo total de sesión:",
-                        style: TextStyle(fontSize: 16)),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline),
-                          onPressed: _tiempoLimiteSeg > 5
-                              ? () => setState(() => _tiempoLimiteSeg -= 5)
-                              : null,
-                        ),
-                        Text(
-                          "$_tiempoLimiteSeg s",
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                    if (_modo == ModoEntrenamiento.rondas) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Cantidad de Rondas:',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline),
-                          onPressed: () => setState(() => _tiempoLimiteSeg += 5),
-                        ),
-                      ],
-                    ),
+                          Chip(
+                            label: Text(
+                              '$_rondas',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blueAccent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        value: _rondas.toDouble(),
+                        min: 5,
+                        max: 50,
+                        divisions: 9,
+                        label: '$_rondas rondas',
+                        onChanged: (val) {
+                          setState(() => _rondas = val.round());
+                        },
+                      ),
+                    ] else ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Tiempo Límite:',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                          ),
+                          Chip(
+                            label: Text(
+                              '$_tiempoLimiteSeg seg',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blueAccent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        value: _tiempoLimiteSeg.toDouble(),
+                        min: 10,
+                        max: 120,
+                        divisions: 11,
+                        label: '$_tiempoLimiteSeg seg',
+                        onChanged: (val) {
+                          setState(() => _tiempoLimiteSeg = val.round());
+                        },
+                      ),
+                    ],
                   ],
                 ),
-              ],
-              const Divider(height: 32),
-
-              // SELECCIÓN DE COLOR
-              const Text(
-                "Color de respuesta:",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8.0,
-                runSpacing: 8.0,
-                children: _coloresDisponibles.map((item) {
-                  final String nombre = item['nombre'];
-                  final Color color = item['color'];
-                  final bool seleccionado = _colorSeleccionado == nombre;
-
-                  return ChoiceChip(
-                    label: Text(nombre),
-                    avatar: nombre == 'Aleatorio'
-                        ? const Icon(Icons.shuffle, size: 18)
-                        : CircleAvatar(
-                            backgroundColor: color,
-                            radius: 8,
-                          ),
-                    selected: seleccionado,
-                    selectedColor: color.withValues(alpha: 0.25),
-                    checkmarkColor: color,
-                    labelStyle: TextStyle(
-                      color: seleccionado ? Colors.black87 : Colors.black54,
-                      fontWeight:
-                          seleccionado ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    onSelected: (bool selected) {
-                      if (selected) {
-                        setState(() => _colorSeleccionado = nombre);
-                      }
-                    },
-                  );
-                }).toList(),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Color de los LEDs',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
-
-              const Spacer(),
-
-              // BOTÓN INICIAR RUTINA
-              SizedBox(
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: _iniciarRutina,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text(
-                    "INICIAR RUTINA",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: DropdownButtonFormField<String>(
+                  initialValue: _colorSeleccionado,
+                  decoration: const InputDecoration(
+                    labelText: 'Seleccionar Color Base',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.palette),
+                  ),
+                  items: _coloresDisponibles.map((color) {
+                    return DropdownMenuItem(
+                      value: color,
+                      child: Text(color),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _colorSeleccionado = val);
+                    }
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton.icon(
+                onPressed: _navegarAEntrenamiento,
+                icon: const Icon(Icons.play_arrow, size: 28),
+                label: const Text(
+                  'INICIAR RUTINA',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
                   ),
                 ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 4,
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
