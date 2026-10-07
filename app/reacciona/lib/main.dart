@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -5,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:go_router/go_router.dart';
 
+import 'firebase_options.dart';
 import 'provider/theme_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -18,33 +20,57 @@ import 'screens/settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
 
-  // 2. Persistencia offline en Realtime Database
-  FirebaseDatabase.instance.setPersistenceEnabled(true);
+  // Inicialización de Firebase con opciones para Web (Chrome) y plataformas nativas
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Persistencia offline con manejo de excepciones para evitar bloqueos
+  try {
+    FirebaseDatabase.instance.setPersistenceEnabled(true);
+  } catch (e) {
+    debugPrint('Nota sobre persistencia Firebase: $e');
+  }
 
   runApp(const ProviderScope(child: ActiveloApp()));
 }
 
-// 1. Protección de rutas según el estado de autenticación de Firebase
+// Permite a GoRouter reaccionar cuando cambia la sesión de Firebase Auth
+class GoRouterRefreshStream extends ChangeNotifier {
+  late final StreamSubscription<dynamic> _subscription;
+
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    notifyListeners();
+    _subscription = stream.listen((_) => notifyListeners());
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
 final _router = GoRouter(
   initialLocation: '/',
+  refreshListenable: GoRouterRefreshStream(FirebaseAuth.instance.authStateChanges()),
   redirect: (context, state) {
     final user = FirebaseAuth.instance.currentUser;
     final isLoggingIn =
         state.matchedLocation == '/login' || state.matchedLocation == '/register';
 
-    // Si no está logueado y quiere acceder a una ruta privada -> al login
+    // Si no está logueado y quiere acceder a una ruta privada -> va al login
     if (user == null && !isLoggingIn) {
       return '/login';
     }
 
-    // Si ya está logueado e intenta ir al login/registro -> a la pantalla principal
+    // Si ya está logueado e intenta ir al login/registro -> va a la pantalla principal
     if (user != null && isLoggingIn) {
       return '/';
     }
 
-    return null; // Mantiene la navegación normal
+    return null;
   },
   routes: [
     GoRoute(
