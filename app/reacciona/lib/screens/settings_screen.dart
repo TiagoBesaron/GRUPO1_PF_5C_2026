@@ -1,231 +1,177 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../provider/theme_provider.dart';
 
-class AjustesScreen extends StatefulWidget {
-  const AjustesScreen({super.key});
+class SettingsScreen extends ConsumerStatefulWidget {
+  const SettingsScreen({super.key});
 
   @override
-  State<AjustesScreen> createState() => _AjustesScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _AjustesScreenState extends State<AjustesScreen> {
-  bool _modoOscuro = false;
-  bool _notificaciones = true;
-
-  // FUNCIÓN PARA GENERAR Y DESCARGAR EL PDF AUTOMÁTICAMENTE
-  Future<void> _generarYDescargarPDF() async {
-    final pdf = pw.Document();
-    final user = FirebaseAuth.instance.currentUser;
-    final nombreUsuario = user?.displayName ?? "Atleta";
-    final emailUsuario = user?.email ?? "Sin correo";
-
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        build: (pw.Context context) {
-          return pw.Padding(
-            padding: const pw.EdgeInsets.all(24),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Header(
-                  level: 0,
-                  child: pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text(
-                        'REACCIONA - LED Trainer',
-                        style: pw.TextStyle(
-                          fontSize: 22,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.Text(
-                        'Informe de Proyecto',
-                        style: const pw.TextStyle(
-                          fontSize: 14,
-                          color: PdfColors.grey700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(height: 20),
-
-                // DATOS DEL USUARIO
-                pw.Text(
-                  'Datos del Atleta:',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Text('Nombre: $nombreUsuario'),
-                pw.Text('Email: $emailUsuario'),
-                pw.Text('Fecha de reporte: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}'),
-
-                // Corrección: pw.Divider envuelto en pw.Padding
-                pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(vertical: 16),
-                  child: pw.Divider(),
-                ),
-
-                // RESUMEN DEL PROYECTO
-                pw.Text(
-                  'Resumen del Sistema:',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 8),
-                pw.Text(
-                  'GRUPO1_PF_5C_2026 es una plataforma interactiva de entrenamiento de reflejos y velocidad de reacción.',
-                ),
-                pw.SizedBox(height: 6),
-                pw.Bullet(
-                  text: 'Hardware: Módulos de luces LED gestionados vía ESP32.',
-                ),
-                pw.Bullet(
-                  text: 'Conectividad: Comunicación inalámbrica Bluetooth BLE de baja latencia.',
-                ),
-                pw.Bullet(
-                  text: 'Telemetría: Sincronización en tiempo real con Firebase Realtime Database.',
-                ),
-                pw.Bullet(
-                  text: 'Análisis: Registro estadístico de promedios, récord personal e historial de sesiones.',
-                ),
-
-                pw.Spacer(),
-
-                pw.Center(
-                  child: pw.Text(
-                    'Documento generado automáticamente por REACCIONA App',
-                    style: const pw.TextStyle(
-                      fontSize: 10,
-                      color: PdfColors.grey600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-
-    // Muestra el diálogo de descarga / impresión automática del sistema
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Resumen_Proyecto_LED_Trainer.pdf',
-    );
-  }
-
-  // DIÁLOGO CON EL RESUMEN DEL PROYECTO
-  void _mostrarResumenProyecto() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: const [
-            Icon(Icons.info_outline, color: Colors.blue),
-            SizedBox(width: 10),
-            Text('Resumen del Proyecto'),
-          ],
-        ),
-        content: const SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'REACCIONA - LED Trainer',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Proyecto Final 5C 2026.\n\n'
-                'Sistema integral de entrenamiento táctil y cognitivo diseñado para medir y mejorar el tiempo de reacción en atletas mediante dispositivos LED programables impulsados por ESP32 y Bluetooth BLE.',
-              ),
-              SizedBox(height: 12),
-              Text(
-                'Tecnologías:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text('• Flutter & Dart\n• Firebase Realtime Database\n• Bluetooth BLE & ESP32'),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pop(context);
-              _generarYDescargarPDF();
-            },
-            icon: const Icon(Icons.picture_as_pdf, size: 18),
-            label: const Text('Descargar PDF'),
-          ),
-        ],
-      ),
-    );
-  }
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _sonidoHabilitado = true;
+  bool _vibracionHabilitada = true;
+  bool _reconexionAutomatica = true;
+  double _brilloLeds = 80;
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final nombre = user?.displayName ?? "Pp";
-    final email = user?.email ?? "pollo@gmail.com";
+    final themeMode = ref.watch(themeProvider);
+    final isDarkMode = themeMode == ThemeMode.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ajustes'),
+        title: const Text('Ajustes y Configuración'),
+        centerTitle: true,
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // TARJETA DE USUARIO
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F4F8),
-                borderRadius: BorderRadius.circular(16),
+            // Sección Apariencia
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+              child: Text(
+                'APARIENCIA Y TEMA',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                  letterSpacing: 1.2,
+                ),
               ),
-              child: Row(
+            ),
+            Card(
+              child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: Colors.blue.shade100,
-                    child: const Icon(Icons.person, color: Colors.blue),
+                  SwitchListTile(
+                    secondary: Icon(
+                      isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                      color: Colors.blue,
+                    ),
+                    title: const Text('Modo Oscuro'),
+                    subtitle: const Text('Cambiar entre tema claro y oscuro'),
+                    value: isDarkMode,
+                    activeThumbColor: Colors.blue,
+                    onChanged: (bool value) {
+                      ref.read(themeProvider.notifier).toggleTheme(value);
+                    },
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Sección Audio y Retroalimentación
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+              child: Text(
+                'SONIDO Y RETROALIMENTACIÓN',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            Card(
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    secondary: const Icon(Icons.volume_up, color: Colors.blue),
+                    title: const Text('Efectos de Sonido'),
+                    subtitle: const Text('Reproducir sonidos al presionar los pods'),
+                    value: _sonidoHabilitado,
+                    activeThumbColor: Colors.blue,
+                    onChanged: (val) {
+                      setState(() => _sonidoHabilitado = val);
+                    },
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.vibration, color: Colors.blue),
+                    title: const Text('Vibración Háptica'),
+                    subtitle: const Text('Vibración en el teléfono al registrar toques'),
+                    value: _vibracionHabilitada,
+                    activeThumbColor: Colors.blue,
+                    onChanged: (val) {
+                      setState(() => _vibracionHabilitada = val);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Sección Dispositivos y Pods
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+              child: Text(
+                'CONFIGURACIÓN DE PODS',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            Card(
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    secondary: const Icon(Icons.autorenew, color: Colors.blue),
+                    title: const Text('Reconexión Automática'),
+                    subtitle: const Text('Conectar automáticamente al pod conocido'),
+                    value: _reconexionAutomatica,
+                    activeThumbColor: Colors.blue,
+                    onChanged: (val) {
+                      setState(() => _reconexionAutomatica = val);
+                    },
+                  ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          nombre,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.lightbulb_outline, color: Colors.blue),
+                                SizedBox(width: 12),
+                                Text(
+                                  'Brillo Predeterminado LED',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              '${_brilloLeds.round()}%',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          email,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                          ),
+                        Slider(
+                          value: _brilloLeds,
+                          min: 10,
+                          max: 100,
+                          divisions: 9,
+                          label: '${_brilloLeds.round()}%',
+                          activeColor: Colors.blue,
+                          onChanged: (val) {
+                            setState(() => _brilloLeds = val);
+                          },
                         ),
                       ],
                     ),
@@ -233,90 +179,110 @@ class _AjustesScreenState extends State<AjustesScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // SECCIÓN PREFERENCIAS
-            const Text(
-              "Preferencias",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            SwitchListTile(
-              value: _modoOscuro,
-              onChanged: (val) {
-                setState(() => _modoOscuro = val);
-              },
-              secondary: const Icon(Icons.dark_mode_outlined),
-              title: const Text('Modo Oscuro'),
-            ),
-
-            SwitchListTile(
-              value: _notificaciones,
-              onChanged: (val) {
-                setState(() => _notificaciones = val);
-              },
-              secondary: const Icon(Icons.notifications_none),
-              title: const Text('Notificaciones'),
-            ),
-
-            const Divider(height: 32),
-
-            // SECCIÓN PROYECTO E INFORMES
-            const Text(
-              "Proyecto & Informes",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            ListTile(
-              leading: const Icon(Icons.article_outlined),
-              title: const Text('Resumen del Proyecto'),
-              trailing: const Icon(Icons.chevron_right, size: 20),
-              onTap: _mostrarResumenProyecto,
-            ),
-
-            ListTile(
-              leading: const Icon(Icons.picture_as_pdf_outlined, color: Colors.redAccent),
-              title: const Text('Descargar Informe PDF'),
-              subtitle: const Text('Descarga automática del resumen'),
-              trailing: const Icon(Icons.download, size: 20),
-              onTap: _generarYDescargarPDF,
-            ),
-
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('Editar Perfil'),
-              trailing: const Icon(Icons.chevron_right, size: 20),
-              onTap: () => context.push('/edit-profile'),
-            ),
-
-            const Divider(height: 32),
-
-            // CERRAR SESIÓN (Corrección de uso síncrono del BuildContext)
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text(
-                'Cerrar Sesión',
+            // Sección Cuenta y Perfil
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+              child: Text(
+                'CUENTA Y PERFIL',
                 style: TextStyle(
-                  color: Colors.red,
+                  fontSize: 13,
                   fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                  letterSpacing: 1.2,
                 ),
               ),
-              onTap: () async {
-                await FirebaseAuth.instance.signOut();
-                if (!context.mounted) return;
-                context.go('/login');
-              },
             ),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.person_outline, color: Colors.blue),
+                    title: const Text('Editar Perfil'),
+                    subtitle: const Text('Actualiza tu información personal'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/edit-profile'),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.bluetooth_searching, color: Colors.blue),
+                    title: const Text('Dispositivos Bluetooth'),
+                    subtitle: const Text('Administrar conexiones y escaneo'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/bluetooth'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Sección Información
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+              child: Text(
+                'INFORMACIÓN',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            Card(
+              child: Column(
+                children: [
+                  const ListTile(
+                    leading: Icon(Icons.info_outline, color: Colors.blue),
+                    title: Text('Activelo LED Trainer'),
+                    subtitle: Text('Versión 1.0.0'),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.privacy_tip_outlined, color: Colors.blue),
+                    title: const Text('Términos y Privacidad'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Activelo - Sistema de entrenamiento táctil y cognitivo.')),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+
+            // Botón Cerrar Sesión
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.redAccent),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.logout, color: Colors.redAccent),
+                label: const Text(
+                  'Cerrar Sesión',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onPressed: () async {
+                  await FirebaseAuth.instance.signOut();
+                  if (context.mounted) {
+                    context.go('/login');
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),

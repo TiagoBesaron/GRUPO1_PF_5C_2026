@@ -142,5 +142,6 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
   void dispose() {
     _notifySubscription?.cancel();
     _subscription?.cancel();
+    super.dispose();
   }
 }
