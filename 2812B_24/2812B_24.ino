@@ -1,6 +1,6 @@
 #include <Adafruit_NeoPixel.h>
 
-#define PIN 21
+#define PIN 7
 #define NUMPIXELS 24
 
 Adafruit_NeoPixel tira(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
