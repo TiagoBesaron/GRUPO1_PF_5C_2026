@@ -2,7 +2,7 @@
 
 #define PIN 7
 #define NUMPIXELS 24
-#define SENSOR_PIN 2 // El Pin 2 cuenta con interrupción física (INT0)
+#define SENSOR_PIN 2 // Pin 2 con interrupción física (INT0)
 
 Adafruit_NeoPixel tira(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
@@ -12,12 +12,10 @@ const unsigned long intervaloColor = 1000;
 int colorActual = 0;
 
 // Estado de la tira
-bool tiraEncendida = true;
+bool tiraEncendida = false;
 
-// Variables de interrupción (deben declararse como volatile)
-volatile bool movimientoDetectado = false;
-unsigned long ultimoMovimiento = 0;
-const unsigned long tiempoAntirrebote = 150; // Pequeño margen para filtrar ruido eléctrico
+// Variable de interrupción para registrar cambios en el sensor
+volatile bool cambioEstadoSensor = false;
 
 // Control para Monitor Serial
 unsigned long tiempoAnteriorSerial = 0;
@@ -25,7 +23,7 @@ const unsigned long intervaloSerial = 200;
 
 // Rutina de Servicio de Interrupción (ISR)
 void ISR_sensor() {
-  movimientoDetectado = true;
+  cambioEstadoSensor = true;
 }
 
 void apagarLeds() {
@@ -62,47 +60,48 @@ void setup() {
 
   pinMode(SENSOR_PIN, INPUT);
 
-  // Adjuntamos la interrupción por hardware en flanco de subida (LOW a HIGH)
-  attachInterrupt(digitalPinToInterrupt(SENSOR_PIN), ISR_sensor, RISING);
+  // Se activa la interrupción ante CUALQUIER cambio de estado (HIGH a LOW o LOW a HIGH)
+  attachInterrupt(digitalPinToInterrupt(SENSOR_PIN), ISR_sensor, CHANGE);
 
-  // Arrancamos con rojo
-  encenderColor(255, 0, 0);
+  // Verificar estado inicial del sensor al arrancar
+  if (digitalRead(SENSOR_PIN) == HIGH) {
+    tiraEncendida = true;
+    cambiarColor();
+  } else {
+    tiraEncendida = false;
+    apagarLeds();
+  }
 
-  Serial.println("--- Sistema Iniciado con Interrupciones en Tiempo Real ---");
+  Serial.println("--- Sistema Iniciado por Detección Directa ---");
 }
 
 void loop() {
   unsigned long tiempoActual = millis();
 
-  // 1. Procesamiento inmediato si ocurrió un pulso en el sensor
-  if (movimientoDetectado) {
-    movimientoDetectado = false; // Reiniciar bandera
+  // 1. Procesar cambio detectado por el sensor
+  if (cambioEstadoSensor) {
+    cambioEstadoSensor = false; // Reiniciar bandera
+    bool estadoSensor = digitalRead(SENSOR_PIN);
 
-    // Antirrebote para evitar falsos disparos consecutivos
-    if (tiempoActual - ultimoMovimiento >= tiempoAntirrebote) {
-      ultimoMovimiento = tiempoActual;
-
-      // Cambiar estado de la tira
-      tiraEncendida = !tiraEncendida;
-
-      if (tiraEncendida) {
-        cambiarColor();
-        Serial.println(">>> DETECCIÓN EN TIEMPO REAL: Tira encendida");
-      } else {
-        apagarLeds();
-        Serial.println(">>> DETECCIÓN EN TIEMPO REAL: Tira apagada");
-      }
+    if (estadoSensor == HIGH && !tiraEncendida) {
+      tiraEncendida = true;
+      cambiarColor();
+      Serial.println(">>> MOVIMIENTO/PRESENCIA DETECTADA: Tira encendida");
+    } else if (estadoSensor == LOW && tiraEncendida) {
+      tiraEncendida = false;
+      apagarLeds();
+      Serial.println(">>> SIN DETECCIÓN: Tira apagada");
     }
   }
 
-  // 2. Monitoreo continuo del sensor para el Monitor Serial
+  // 2. Monitoreo periódico para el Monitor Serial
   if (tiempoActual - tiempoAnteriorSerial >= intervaloSerial) {
     tiempoAnteriorSerial = tiempoActual;
     Serial.print("Lectura Sensor PIN 2: ");
     Serial.println(digitalRead(SENSOR_PIN));
   }
 
-  // 3. Cambio periódico de color si la tira está encendida
+  // 3. Cambio periódico de color únicamente mientras se mantenga la detección
   if (tiraEncendida) {
     if (tiempoActual - tiempoAnterior >= intervaloColor) {
       tiempoAnterior = tiempoActual;
