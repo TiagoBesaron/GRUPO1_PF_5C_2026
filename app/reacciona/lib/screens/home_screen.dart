@@ -323,6 +323,12 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 12),
 
               _QuickAccessItem(
+                icon: Icons.bluetooth,
+                title: "Vincular Pod BLE",
+                onTap: () => context.push('/bluetooth'),
+              ),
+              const SizedBox(height: 8),
+              _QuickAccessItem(
                 icon: Icons.history,
                 title: "Ver historial de tiempos",
                 onTap: () => context.push('/tiempos'),
@@ -336,8 +342,8 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 8),
               _QuickAccessItem(
                 icon: Icons.settings_outlined,
-                title: "Configuración",
-                onTap: () => context.push('/edit-profile'),
+                title: "Ajustes y Configuración",
+                onTap: () => context.push('/settings'),
               ),
               const SizedBox(height: 40),
             ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class BluetoothScreen extends StatefulWidget {
   const BluetoothScreen({super.key});
@@ -8,208 +9,152 @@ class BluetoothScreen extends StatefulWidget {
 }
 
 class _BluetoothScreenState extends State<BluetoothScreen> {
-  bool _buscando = false;
-  bool _conectado = false;
-  String? _dispositivoConectado;
+  bool isScanning = false;
+  List<ScanResult> scanResults = [];
 
-  // Lista de dispositivos BLE detectados
-  final List<Map<String, String>> _dispositivosEncontrados = [];
-
-  void _iniciarBusqueda() async {
-    setState(() {
-      _buscando = true;
-      _dispositivosEncontrados.clear();
-    });
-
-    // Simulamos un escaneo de 3 segundos sin inventar dispositivos falsos
-    await Future.delayed(const Duration(seconds: 3));
-    if (!mounted) return;
-
-    setState(() {
-      _buscando = false;
-      // Aquí se completará con la lista real cuando integres 'flutter_blue_plus'
-    });
+  @override
+  void initState() {
+    super.initState();
+    _startScan();
   }
 
-  void _cancelarBusqueda() {
+  Future<void> _startScan() async {
     setState(() {
-      _buscando = false;
+      scanResults.clear();
+      isScanning = true;
     });
+
+    FlutterBluePlus.scanResults.listen((results) {
+      if (mounted) {
+        setState(() {
+          scanResults = results;
+        });
+      }
+    });
+
+    try {
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
+    } catch (e) {
+      debugPrint('Error en escaneo BLE: $e');
+    }
+
+    if (mounted) {
+      setState(() {
+        isScanning = false;
+      });
+    }
   }
 
-  void _conectarDispositivo(String nombre) {
-    setState(() {
-      _conectado = true;
-      _dispositivoConectado = nombre;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Conectado a $nombre"),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  Future<void> _stopScan() async {
+    await FlutterBluePlus.stopScan();
+    if (mounted) {
+      setState(() {
+        isScanning = false;
+      });
+    }
   }
 
-  void _desconectarDispositivo() {
-    setState(() {
-      _conectado = false;
-      _dispositivoConectado = null;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Dispositivo desconectado"),
-        backgroundColor: Colors.orange,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  @override
+  void dispose() {
+    FlutterBluePlus.stopScan();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Bluetooth BLE'),
+        title: const Text('Conectar Bluetooth'),
+        centerTitle: true,
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // TARJETA DE ESTADO DE CONEXIÓN
-              Card(
-                color: _conectado ? Colors.green.shade50 : Colors.red.shade50,
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _conectado
-                            ? Icons.bluetooth_connected
-                            : Icons.bluetooth_disabled,
-                        size: 40,
-                        color: _conectado ? Colors.green : Colors.red,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _conectado ? "Conectado" : "Desconectado",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: _conectado
-                                    ? Colors.green.shade900
-                                    : Colors.red.shade900,
-                              ),
-                            ),
-                            Text(
-                              _conectado
-                                  ? (_dispositivoConectado ?? "ESP32 Vinculado")
-                                  : "Sin dispositivo vinculado",
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (_conectado)
-                        IconButton(
-                          icon: const Icon(Icons.link_off, color: Colors.red),
-                          onPressed: _desconectarDispositivo,
-                          tooltip: "Desconectar",
-                        ),
-                    ],
+              // Barra de carga superior cuando está buscando
+              if (isScanning)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12.0),
+                  child: LinearProgressIndicator(
+                    color: Colors.orange,
+                    backgroundColor: Color(0xFFFFE0B2),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
 
-              // BOTÓN BUSCAR / CANCELAR
-              SizedBox(
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: _buscando ? _cancelarBusqueda : _iniciarBusqueda,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _buscando ? Colors.orange : Colors.blue,
-                  ),
-                  icon: _buscando
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.search),
-                  label: Text(
-                    _buscando ? "CANCELAR BÚSQUEDA" : "BUSCAR DISPOSITIVOS BLE",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // LISTADO DE DISPOSITIVOS ENCONTRADOS
-              const Text(
-                "Dispositivos Disponibles",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-
+              // Lista de dispositivos
               Expanded(
-                child: _dispositivosEncontrados.isEmpty
+                child: scanResults.isEmpty
                     ? Center(
                         child: Text(
-                          _buscando
-                              ? "Buscando dispositivos BLE cercanos..."
-                              : "No se encontraron dispositivos. Encendé tu ESP32 y tocá en buscar.",
-                          style: const TextStyle(color: Colors.grey),
-                          textAlign: TextAlign.center,
+                          isScanning
+                              ? 'Buscando dispositivos cercanos...'
+                              : 'No se encontraron dispositivos.',
+                          style: TextStyle(color: Colors.grey[600]),
                         ),
                       )
                     : ListView.builder(
-                        itemCount: _dispositivosEncontrados.length,
+                        itemCount: scanResults.length,
                         itemBuilder: (context, index) {
-                          final dev = _dispositivosEncontrados[index];
-                          final esElConectado =
-                              _conectado && _dispositivoConectado == dev["nombre"];
+                          final result = scanResults[index];
+                          final deviceName =
+                              result.device.platformName.isNotEmpty
+                                  ? result.device.platformName
+                                  : 'Dispositivo sin nombre';
 
                           return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
+                            elevation: 1,
+                            margin: const EdgeInsets.symmetric(vertical: 4),
                             child: ListTile(
-                              leading: const Icon(
-                                Icons.developer_board,
-                                color: Colors.blue,
-                              ),
+                              leading: const Icon(Icons.bluetooth, color: Colors.blue),
                               title: Text(
-                                dev["nombre"] ?? "Dispositivo BLE",
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                deviceName,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
-                              subtitle: Text(
-                                "MAC: ${dev["id"]} | Señal: ${dev["rssi"]}",
-                              ),
+                              subtitle: Text('ID: ${result.device.remoteId}'),
                               trailing: ElevatedButton(
-                                onPressed: esElConectado
-                                    ? null
-                                    : () => _conectarDispositivo(dev["nombre"]!),
-                                child: Text(
-                                  esElConectado ? "Conectado" : "Conectar",
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
                                 ),
+                                onPressed: () {
+                                  _stopScan();
+                                  Navigator.pop(context, result.device);
+                                },
+                                child: const Text('Conectar'),
                               ),
                             ),
                           );
                         },
                       ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // BOTÓN PRINCIPAL CORREGIDO (Centrado, legible y en blanco)
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white, // Fuerza el texto azul a BLANCO
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                  onPressed: isScanning ? _stopScan : _startScan,
+                  child: Text(
+                    isScanning ? 'CANCELAR BÚSQUEDA' : 'BUSCAR NUEVAMENTE',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
