@@ -14,12 +14,17 @@ import '../../screens/entrenamiento_activo_screen.dart';
 import '../../screens/tiempos_screen.dart';
 import '../../screens/settings_screen.dart';
 
-class GoRouterRefreshStream extends ChangeNotifier {
+// Notificador seguro que delega el redibujado al finalizar el frame de Flutter
+class SafeRouterRefreshStream extends ChangeNotifier {
   late final StreamSubscription<dynamic> _subscription;
 
-  GoRouterRefreshStream(Stream<dynamic> stream) {
-    notifyListeners();
-    _subscription = stream.listen((_) => notifyListeners());
+  SafeRouterRefreshStream(Stream<dynamic> stream) {
+    _subscription = stream.listen((_) {
+      // Evita colisiones durante la fase de build ejecutando la notificación justo después
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
+    });
   }
 
   @override
@@ -29,20 +34,28 @@ class GoRouterRefreshStream extends ChangeNotifier {
   }
 }
 
-// Se define como Provider para inicializarse SOLAMENTE cuando Firebase ya cargó
 final routerProvider = Provider<GoRouter>((ref) {
+  // Instanciamos el notificador conectado a Firebase Auth
+  final refreshNotifier = SafeRouterRefreshStream(FirebaseAuth.instance.authStateChanges());
+
+  ref.onDispose(() {
+    refreshNotifier.dispose();
+  });
+
   return GoRouter(
     initialLocation: '/home',
-    refreshListenable: GoRouterRefreshStream(FirebaseAuth.instance.authStateChanges()),
+    refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final user = FirebaseAuth.instance.currentUser;
       final isLoggingIn =
           state.matchedLocation == '/login' || state.matchedLocation == '/register';
 
+      // Redirección si no hay usuario autenticado
       if (user == null && !isLoggingIn) {
         return '/login';
       }
 
+      // Redirección si ya inició sesión e intenta ir a login/registro
       if (user != null && isLoggingIn) {
         return '/home';
       }

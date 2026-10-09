@@ -5,6 +5,12 @@ import 'package:firebase_database/firebase_database.dart';
 class TiemposScreen extends StatelessWidget {
   const TiemposScreen({super.key});
 
+  String _formatFecha(dynamic timestamp) {
+    if (timestamp == null || timestamp is! num) return "Fecha reciente";
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp.toInt());
+    return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -74,12 +80,14 @@ class TiemposScreen extends StatelessWidget {
                       listaHistorial.add({
                         "id": key,
                         "tiempoMs": value["tiempoMs"] ?? 0,
-                        "fecha": value["fecha"] ?? "Fecha no registrada",
+                        "timestamp": value["timestamp"] ?? 0,
                       });
                     }
                   });
 
-                  // Invertir la lista para mostrar los registros más recientes arriba
+                  listaHistorial.sort((a, b) =>
+                      (a["timestamp"] as num).compareTo(b["timestamp"] as num));
+
                   final historialInvertido = listaHistorial.reversed.toList();
 
                   return ListView.builder(
@@ -101,7 +109,7 @@ class TiemposScreen extends StatelessWidget {
                             "Intento #${historialInvertido.length - index}",
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          subtitle: Text("${item["fecha"]}"),
+                          subtitle: Text(_formatFecha(item["timestamp"])),
                           trailing: Text(
                             "${item["tiempoMs"]} ms",
                             style: const TextStyle(

@@ -1,16 +1,21 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import '../provider/bluetooth_provider.dart';
 
-class BluetoothScreen extends StatefulWidget {
+class BluetoothScreen extends ConsumerStatefulWidget {
   const BluetoothScreen({super.key});
 
   @override
-  State<BluetoothScreen> createState() => _BluetoothScreenState();
+  ConsumerState<BluetoothScreen> createState() => _BluetoothScreenState();
 }
 
-class _BluetoothScreenState extends State<BluetoothScreen> {
+class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
   bool isScanning = false;
+  bool isConnecting = false;
   List<ScanResult> scanResults = [];
+  StreamSubscription<List<ScanResult>>? _scanSubscription;
 
   @override
   void initState() {
@@ -19,12 +24,14 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   }
 
   Future<void> _startScan() async {
+    await _scanSubscription?.cancel();
+
     setState(() {
       scanResults.clear();
       isScanning = true;
     });
 
-    FlutterBluePlus.scanResults.listen((results) {
+    _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
       if (mounted) {
         setState(() {
           scanResults = results;
@@ -47,6 +54,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
 
   Future<void> _stopScan() async {
     await FlutterBluePlus.stopScan();
+    await _scanSubscription?.cancel();
     if (mounted) {
       setState(() {
         isScanning = false;
@@ -54,16 +62,49 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
     }
   }
 
+  Future<void> _conectarDispositivo(BluetoothDevice device) async {
+    await _stopScan();
+    setState(() => isConnecting = true);
+
+    try {
+      await ref.read(bluetoothProvider.notifier).conectar(device);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("¡Conectado exitosamente a ${device.platformName.isNotEmpty ? device.platformName : 'ESP32'}!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, device);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error al conectar: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isConnecting = false);
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _scanSubscription?.cancel();
     FlutterBluePlus.stopScan();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Conectar Bluetooth'),
         centerTitle: true,
@@ -73,8 +114,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // Barra de carga superior cuando está buscando
-              if (isScanning)
+              if (isScanning || isConnecting)
                 const Padding(
                   padding: EdgeInsets.only(bottom: 12.0),
                   child: LinearProgressIndicator(
@@ -82,8 +122,6 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
                     backgroundColor: Color(0xFFFFE0B2),
                   ),
                 ),
-
-              // Lista de dispositivos
               Expanded(
                 child: scanResults.isEmpty
                     ? Center(
@@ -91,17 +129,18 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
                           isScanning
                               ? 'Buscando dispositivos cercanos...'
                               : 'No se encontraron dispositivos.',
-                          style: TextStyle(color: Colors.grey[600]),
+                          style: TextStyle(
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          ),
                         ),
                       )
                     : ListView.builder(
                         itemCount: scanResults.length,
                         itemBuilder: (context, index) {
                           final result = scanResults[index];
-                          final deviceName =
-                              result.device.platformName.isNotEmpty
-                                  ? result.device.platformName
-                                  : 'Dispositivo sin nombre';
+                          final deviceName = result.device.platformName.isNotEmpty
+                              ? result.device.platformName
+                              : 'Dispositivo sin nombre';
 
                           return Card(
                             elevation: 1,
@@ -118,10 +157,9 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
                                   backgroundColor: Colors.blue,
                                   foregroundColor: Colors.white,
                                 ),
-                                onPressed: () {
-                                  _stopScan();
-                                  Navigator.pop(context, result.device);
-                                },
+                                onPressed: isConnecting
+                                    ? null
+                                    : () => _conectarDispositivo(result.device),
                                 child: const Text('Conectar'),
                               ),
                             ),
@@ -129,17 +167,14 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
                         },
                       ),
               ),
-
               const SizedBox(height: 16),
-
-              // BOTÓN PRINCIPAL CORREGIDO (Centrado, legible y en blanco)
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white, // Fuerza el texto azul a BLANCO
+                    foregroundColor: Colors.white,
                     elevation: 2,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
@@ -152,6 +187,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
+                      color: Colors.white,
                     ),
                   ),
                 ),

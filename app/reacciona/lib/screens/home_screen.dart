@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:go_router/go_router.dart';
+import '../provider/bluetooth_provider.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   String _formatTiempo(num? ms) {
@@ -13,8 +15,11 @@ class HomeScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final user = FirebaseAuth.instance.currentUser;
+    final btState = ref.watch(bluetoothProvider);
+    final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -36,7 +41,6 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // SALUDO DINÁMICO
               StreamBuilder<User?>(
                 stream: FirebaseAuth.instance.userChanges(),
                 builder: (context, snapshot) {
@@ -57,7 +61,6 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // ESTADO DEL DISPOSITIVO ESP32
               InkWell(
                 onTap: () => context.push('/bluetooth'),
                 borderRadius: BorderRadius.circular(12),
@@ -67,41 +70,45 @@ class HomeScreen extends StatelessWidget {
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8F9FA),
+                    color: cardColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(
+                      color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                    ),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.red.shade50,
+                          color: btState.conectado ? Colors.green.shade50 : Colors.red.shade50,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.bluetooth_disabled,
-                          color: Colors.redAccent,
+                        child: Icon(
+                          btState.conectado ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
+                          color: btState.conectado ? Colors.green : Colors.redAccent,
                           size: 22,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               "Estado del dispositivo",
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                               ),
                             ),
-                            SizedBox(height: 2),
+                            const SizedBox(height: 2),
                             Text(
-                              "ESP32 desconectado",
+                              btState.conectado
+                                  ? "ESP32 Conectado (${btState.device?.platformName.isNotEmpty == true ? btState.device!.platformName : 'Pod BLE'})"
+                                  : "ESP32 desconectado",
                               style: TextStyle(
-                                color: Colors.grey,
+                                color: btState.conectado ? Colors.green : Colors.grey,
                                 fontSize: 13,
                               ),
                             ),
@@ -110,7 +117,6 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const Icon(
                         Icons.bluetooth,
-                        color: Colors.black54,
                         size: 20,
                       ),
                     ],
@@ -119,7 +125,6 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // STREAM DE TIEMPOS Y ÚLTIMA SESIÓN DESDE FIREBASE
               StreamBuilder<DatabaseEvent>(
                 stream: user != null
                     ? FirebaseDatabase.instance
@@ -137,22 +142,30 @@ class HomeScreen extends StatelessWidget {
                     try {
                       final rawData = snapshot.data!.snapshot.value
                           as Map<dynamic, dynamic>;
-                      final List<num> lista = [];
+                      final List<Map<String, dynamic>> listaIntentos = [];
 
                       rawData.forEach((key, value) {
                         if (value is Map && value.containsKey('tiempoMs')) {
-                          final ms = value['tiempoMs'] as num;
-                          lista.add(ms);
-                          ultimoMs = ms;
+                          listaIntentos.add({
+                            'tiempoMs': value['tiempoMs'] as num,
+                            'timestamp': value['timestamp'] ?? 0,
+                          });
                         }
                       });
 
-                      if (lista.isNotEmpty) {
-                        cantidadIntentos = lista.length;
-                        lista.sort();
-                        mejorMs = lista.first;
-                        final suma = lista.reduce((a, b) => a + b);
-                        promedioMs = suma / lista.length;
+                      if (listaIntentos.isNotEmpty) {
+                        cantidadIntentos = listaIntentos.length;
+
+                        listaIntentos.sort((a, b) =>
+                            (a['timestamp'] as num).compareTo(b['timestamp'] as num));
+                        ultimoMs = listaIntentos.last['tiempoMs'];
+
+                        final listaMs = listaIntentos.map((e) => e['tiempoMs'] as num).toList();
+                        listaMs.sort();
+                        mejorMs = listaMs.first;
+
+                        final suma = listaMs.reduce((a, b) => a + b);
+                        promedioMs = suma / listaMs.length;
                       }
                     } catch (e) {
                       debugPrint("Error al procesar estadísticas: $e");
@@ -164,7 +177,6 @@ class HomeScreen extends StatelessWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // CARDS DE MEJOR Y ÚLTIMO
                       Row(
                         children: [
                           Expanded(
@@ -188,16 +200,17 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
 
-                      // PROMEDIO
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF8F9FA),
+                          color: cardColor,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
+                          border: Border.all(
+                            color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -226,7 +239,6 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ),
 
-                      // ÚLTIMA SESIÓN: SOLO SE MUESTRA SI EXISTE AL MENOS UN REGISTRO
                       if (tieneUltimaSesion) ...[
                         const SizedBox(height: 24),
                         const Text(
@@ -240,9 +252,11 @@ class HomeScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8F9FA),
+                            color: cardColor,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200),
+                            border: Border.all(
+                              color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                            ),
                           ),
                           child: Column(
                             children: [
@@ -287,13 +301,12 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // BOTÓN COMENZAR ENTRENAMIENTO
               SizedBox(
                 width: double.infinity,
                 height: 48,
-                child: OutlinedButton.icon(
+                child: ElevatedButton.icon(
                   onPressed: () => context.push('/config-entrenamiento'),
-                  icon: const Icon(Icons.play_arrow, size: 18),
+                  icon: const Icon(Icons.play_arrow, size: 20),
                   label: const Text(
                     "COMENZAR ENTRENAMIENTO",
                     style: TextStyle(
@@ -301,9 +314,9 @@ class HomeScreen extends StatelessWidget {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF8F9FA),
-                    side: BorderSide(color: Colors.grey.shade300),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
@@ -312,7 +325,6 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              // ACCESOS RÁPIDOS
               const Text(
                 "Accesos rápidos",
                 style: TextStyle(
@@ -354,7 +366,6 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-// COMPONENTE TARJETA DE ESTADÍSTICA (MEJOR / ÚLTIMO)
 class _StatCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
@@ -370,12 +381,17 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+        ),
       ),
       child: Column(
         children: [
@@ -402,7 +418,6 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// COMPONENTE ITEM DE ACCESO RÁPIDO
 class _QuickAccessItem extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -416,15 +431,20 @@ class _QuickAccessItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+        ),
       ),
       child: ListTile(
         onTap: onTap,
-        leading: Icon(icon, color: Colors.black87),
+        leading: Icon(icon, color: Colors.blue),
         title: Text(
           title,
           style: const TextStyle(

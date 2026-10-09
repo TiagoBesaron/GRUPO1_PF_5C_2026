@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../provider/bluetooth_provider.dart';
 
 enum ModoEntrenamiento { rondas, tiempo }
 
@@ -28,6 +29,28 @@ class _ConfigEntrenamientoScreenState
   ];
 
   void _navegarAEntrenamiento() {
+    // Verificación de conexión Bluetooth antes de iniciar
+    final btState = ref.read(bluetoothProvider);
+
+    if (!btState.conectado) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Debés conectar el ESP32 por Bluetooth antes de iniciar la rutina.',
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'CONECTAR',
+            textColor: Colors.white,
+            onPressed: () => context.push('/bluetooth'),
+          ),
+        ),
+      );
+      return;
+    }
+
     List<int> rgbBase;
     switch (_colorSeleccionado) {
       case 'Rojo':
