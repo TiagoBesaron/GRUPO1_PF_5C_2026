@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
-import 'bluetooth_screen.dart';
 import 'tiempos_screen.dart';
 import 'settings_screen.dart';
 
@@ -16,7 +15,6 @@ class _MainWrapperScreenState extends State<MainWrapperScreen> {
 
   final List<Widget> _screens = const [
     HomeScreen(),
-    BluetoothScreen(),
     TiemposScreen(),
     SettingsScreen(),
   ];
@@ -40,11 +38,6 @@ class _MainWrapperScreenState extends State<MainWrapperScreen> {
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
             label: 'Inicio',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bluetooth_outlined),
-            selectedIcon: Icon(Icons.bluetooth),
-            label: 'Bluetooth',
           ),
           NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined),

@@ -1,22 +1,22 @@
 {
   "project_info": {
-    "project_number": "481993883697",
-    "firebase_url": "https://g1-pf-5c-2026-default-rtdb.firebaseio.com",
-    "project_id": "g1-pf-5c-2026",
-    "storage_bucket": "g1-pf-5c-2026.firebasestorage.app"
+    "project_number": "137210611479",
+    "firebase_url": "https://activelo-d9b08-default-rtdb.firebaseio.com",
+    "project_id": "activelo-d9b08",
+    "storage_bucket": "activelo-d9b08.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:481993883697:android:1434cf5fcf840854605510",
+        "mobilesdk_app_id": "1:137210611479:android:dae744bef8cf85444d5952",
         "android_client_info": {
-          "package_name": "G1.ACTIVELO"
+          "package_name": "v1.ACTIVELO.v1"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBJL6C7jPJC0mssJTR8wx7RA57q_jm0cVs"
+          "current_key": "AIzaSyDgmVfCN0D-ghJ7ESyuePRyC10YLRaFggg"
         }
       ],
       "services": {

@@ -63,6 +63,28 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _recuperarPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      _mostrarError("Ingresá tu correo en el campo superior para enviarte el enlace.");
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Enviamos un correo a $email para restablecer la contraseña."),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      _mostrarError("No se pudo enviar el correo de recuperación.");
+    }
+  }
+
   void _mostrarError(String mensaje) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -152,7 +174,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 24),
+
+                  // RECUPERAR CONTRASEÑA
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _recuperarPassword,
+                      child: const Text("¿Olvidaste tu contraseña?"),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
 
                   // BOTÓN DE INICIO DE SESIÓN
                   SizedBox(

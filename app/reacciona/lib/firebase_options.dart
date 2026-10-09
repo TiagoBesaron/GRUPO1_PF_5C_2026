@@ -19,18 +19,18 @@ class DefaultFirebaseOptions {
 
   // REEMPLAZÁ CON TUS DATOS REALES DE FIREBASE
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyB1vdZWLxmgbU74BZwmHlV9ll1zAFuy1Sk',
-    appId: '1:481993883697:web:b141465562871624605510',
-    messagingSenderId: '481993883697',
-    projectId: 'g1-pf-5c-2026',
-    databaseURL: 'https://tu-proyecto-id-default-rtdb.firebaseio.com',
+    apiKey: 'AIzaSyDAb20RirfjHs3jMZxcpdGk-aANP6w4cV0',
+    appId: '1:137210611479:web:9268a37d937dc6af4d5952',
+    messagingSenderId: '137210611479',
+    projectId: 'activelo-d9b08',
+    databaseURL: 'https://activelo-d9b08-default-rtdb.firebaseio.com/',
   );
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyB1vdZWLxmgbU74BZwmHlV9ll1zAFuy1Sk',
-    appId: '1:481993883697:web:b141465562871624605510',
-    messagingSenderId: '481993883697',
-    projectId: 'g1-pf-5c-2026',
-    databaseURL: 'https://tu-proyecto-id-default-rtdb.firebaseio.com',
+    apiKey: 'AIzaSyDAb20RirfjHs3jMZxcpdGk-aANP6w4cV0',
+    appId: '1:137210611479:web:9268a37d937dc6af4d5952',
+    messagingSenderId: '137210611479',
+    projectId: 'activelo-d9b08',
+    databaseURL: 'https://activelo-d9b08-default-rtdb.firebaseio.com/',
   );
 }
