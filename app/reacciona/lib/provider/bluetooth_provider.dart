@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -58,6 +59,9 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
 
       await device.connect();
 
+      // Pausa de estabilización GATT (evita que Web/Android colapse por llamadas consecutivas)
+      await Future.delayed(const Duration(milliseconds: 500));
+
       List<BluetoothService> services = await device.discoverServices();
       BluetoothCharacteristic? rxChar;
 
@@ -66,8 +70,14 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
           for (var char in service.characteristics) {
             // Suscribirse a Notificaciones (Lecturas del ESP32)
             if (char.uuid == characteristicUuidTx) {
-              await char.setNotifyValue(true);
+              // Intenta activar notificaciones sin congelar el flujo si expira en Web
+              try {
+                await char.setNotifyValue(true).timeout(const Duration(seconds: 5));
+              } catch (e) {
+                debugPrint("Nota setNotifyValue (Web/BLE Bypass): $e");
+              }
 
+              await _notifySubscription?.cancel();
               _notifySubscription = char.onValueReceived.listen((value) async {
                 String mensaje = utf8.decode(value);
                 if (mensaje.startsWith("REACCION:")) {

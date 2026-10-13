@@ -39,11 +39,14 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
       }
     });
 
-    try {
-      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
-    } catch (e) {
-      debugPrint('Error en escaneo BLE: $e');
-    }
+try {
+  await FlutterBluePlus.startScan(
+    withServices: [Guid("4fa8691a-0393-40a3-974f-0759e09f114d")],
+    timeout: const Duration(seconds: 15),
+  );
+} catch (e) {
+  debugPrint('Error en escaneo BLE: $e');
+}
 
     if (mounted) {
       setState(() {
