@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../provider/bluetooth_provider.dart';
 
-enum ModoEntrenamiento { rondas, tiempo }
+enum ModoEntrenamiento { rondas, tiempo, manual }
 
 class ConfigEntrenamientoScreen extends ConsumerStatefulWidget {
   const ConfigEntrenamientoScreen({super.key});
@@ -20,16 +20,21 @@ class _ConfigEntrenamientoScreenState
   int _tiempoLimiteSeg = 30;
   String _colorSeleccionado = 'Verde';
 
+  // Variables para color personalizado (RGB 0 a 255)
+  int _customR = 242;
+  int _customG = 21;
+  int _customB = 242;
+
   final List<String> _coloresDisponibles = [
     'Verde',
     'Rojo',
     'Azul',
     'Amarillo',
+    'Personalizado',
     'Aleatorio'
   ];
 
   void _navegarAEntrenamiento() {
-    // Verificación de conexión Bluetooth antes de iniciar
     final btState = ref.read(bluetoothProvider);
 
     if (!btState.conectado) {
@@ -62,21 +67,90 @@ class _ConfigEntrenamientoScreenState
       case 'Amarillo':
         rgbBase = [255, 255, 0];
         break;
+      case 'Personalizado':
+        rgbBase = [_customR, _customG, _customB];
+        break;
       case 'Verde':
       default:
         rgbBase = [0, 255, 0];
         break;
     }
 
+    String modoStr = 'rondas';
+    if (_modo == ModoEntrenamiento.tiempo) modoStr = 'tiempo';
+    if (_modo == ModoEntrenamiento.manual) modoStr = 'manual';
+
     final config = {
-      'modo': _modo == ModoEntrenamiento.rondas ? 'rondas' : 'tiempo',
-      'rondasTotal': _modo == ModoEntrenamiento.rondas ? _rondas : 5,
+      'modo': modoStr,
+      'rondasTotal': _modo == ModoEntrenamiento.rondas ? _rondas : 0,
       'tiempoLimiteSeg': _tiempoLimiteSeg,
       'colorAleatorio': _colorSeleccionado == 'Aleatorio',
       'rgbBase': rgbBase,
     };
 
     context.push('/entrenamiento-activo', extra: config);
+  }
+
+  Widget _buildRgbSlider({
+    required String label,
+    required int value,
+    required Color activeColor,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 24,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: activeColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 60,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.black54, width: 1.5),
+              borderRadius: BorderRadius.circular(4),
+              color: Theme.of(context).cardColor,
+            ),
+            child: Text(
+              '$value',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SliderTheme(
+              data: SliderThemeData(
+                activeTrackColor: activeColor,
+                thumbColor: activeColor,
+                inactiveTrackColor: activeColor.withValues(alpha: 0.2),
+              ),
+              child: Slider(
+                value: value.toDouble(),
+                min: 0,
+                max: 255,
+                divisions: 255,
+                label: '$value',
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -123,6 +197,12 @@ class _ConfigEntrenamientoScreenState
                       subtitle: Text('Toca la mayor cantidad antes de que venza el tiempo'),
                       value: ModoEntrenamiento.tiempo,
                     ),
+                    Divider(height: 1),
+                    RadioListTile<ModoEntrenamiento>(
+                      title: Text('Modo Manual'),
+                      subtitle: Text('Controlá la luz directamente desde la app'),
+                      value: ModoEntrenamiento.manual,
+                    ),
                   ],
                 ),
               ),
@@ -131,7 +211,9 @@ class _ConfigEntrenamientoScreenState
             Text(
               _modo == ModoEntrenamiento.rondas
                   ? 'Parámetros de Rondas'
-                  : 'Parámetros de Tiempo',
+                  : (_modo == ModoEntrenamiento.tiempo
+                      ? 'Parámetros de Tiempo'
+                      : 'Modo Manual'),
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -170,14 +252,14 @@ class _ConfigEntrenamientoScreenState
                       Slider(
                         value: _rondas.toDouble(),
                         min: 5,
-                        max: 50,
-                        divisions: 9,
+                        max: 30,
+                        divisions: 25,
                         label: '$_rondas rondas',
                         onChanged: (val) {
                           setState(() => _rondas = val.round());
                         },
                       ),
-                    ] else ...[
+                    ] else if (_modo == ModoEntrenamiento.tiempo) ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -206,6 +288,19 @@ class _ConfigEntrenamientoScreenState
                           setState(() => _tiempoLimiteSeg = val.round());
                         },
                       ),
+                    ] else ...[
+                      const Row(
+                        children: [
+                          Icon(Icons.touch_app, color: Colors.blueAccent, size: 28),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'En el Modo Manual podés encender y apagar el pod en cualquier momento con los botones de la pantalla.',
+                              style: TextStyle(fontSize: 15, color: Colors.black87),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ],
                 ),
@@ -227,24 +322,84 @@ class _ConfigEntrenamientoScreenState
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: DropdownButtonFormField<String>(
-                  initialValue: _colorSeleccionado,
-                  decoration: const InputDecoration(
-                    labelText: 'Seleccionar Color Base',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.palette),
-                  ),
-                  items: _coloresDisponibles.map((color) {
-                    return DropdownMenuItem(
-                      value: color,
-                      child: Text(color),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() => _colorSeleccionado = val);
-                    }
-                  },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: _colorSeleccionado,
+                      decoration: const InputDecoration(
+                        labelText: 'Seleccionar Color Base',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.palette),
+                      ),
+                      items: _coloresDisponibles.map((color) {
+                        return DropdownMenuItem(
+                          value: color,
+                          child: Text(color),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _colorSeleccionado = val);
+                        }
+                      },
+                    ),
+                    if (_colorSeleccionado == 'Personalizado') ...[
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Ajuste de Color RGB:',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildRgbSlider(
+                        label: 'R',
+                        value: _customR,
+                        activeColor: Colors.red,
+                        onChanged: (val) => setState(() => _customR = val.round()),
+                      ),
+                      _buildRgbSlider(
+                        label: 'G',
+                        value: _customG,
+                        activeColor: Colors.green,
+                        onChanged: (val) => setState(() => _customG = val.round()),
+                      ),
+                      _buildRgbSlider(
+                        label: 'B',
+                        value: _customB,
+                        activeColor: Colors.blue,
+                        onChanged: (val) => setState(() => _customB = val.round()),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Text(
+                            'Vista previa: ',
+                            style: TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Color.fromRGBO(_customR, _customG, _customB, 1.0),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.black26, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color.fromRGBO(_customR, _customG, _customB, 0.4),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),

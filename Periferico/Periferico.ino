@@ -1,27 +1,29 @@
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
+#include <esp_now.h>
+#include <WiFi.h>
 #include <Adafruit_NeoPixel.h>
-#include <esp_bt.h>
 
-// --- CONFIGURACIÓN HARDWARE POD PERIFÉRICO ---
-#define PIN_NEOPIXEL   7    // GPIO 7 para la tira NeoPixel
-#define NUM_PIXELS     24   // 24 NeoPixels
-#define PIN_RCWL       2    // GPIO 2 para el sensor RCWL-0516
+#define PIN_NEOPIXEL   7
+#define NUM_PIXELS     24
+#define PIN_RCWL       2
+
+#define POD_ID 1 // Identificador de este pod
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
-// --- UUIDs PROYECTO ACTIVELO ---
-#define SERVICE_UUID           "4fa8691a-0393-40a3-974f-0759e09f114d"
-#define CHARACTERISTIC_UUID_RX "87b54dba-055b-4321-8525-2b2a239385c7"
-#define CHARACTERISTIC_UUID_TX "d7b54dba-055b-4321-8525-2b2a239385c8"
+// Estructura de mensaje compatible con Central
+typedef struct struct_message {
+  uint8_t podId;
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+  uint32_t reactionTime;
+  bool esReaccion;
+} struct_message;
 
-BLEServer* pServer = NULL;
-BLECharacteristic* pTxCharacteristic = NULL;
-bool deviceConnected = false;
+struct_message datosEntrada;
+struct_message datosSalida;
 
-// --- CONTROL DE ESTADOS Y SENSORES ---
+uint8_t macCentral[6]; // Se guarda automáticamente al recibir la orden
 bool esperandoSensor = false;
 bool comandoPendiente = false;
 uint8_t pendingR = 0, pendingG = 0, pendingB = 0;
@@ -41,128 +43,81 @@ void encenderLEDs(uint8_t r, uint8_t g, uint8_t b) {
 
 void solicitarEncendido(uint8_t r, uint8_t g, uint8_t b) {
   if (digitalRead(PIN_RCWL) == HIGH) {
-    // Si el RCWL está retenido en 1, guarda la orden para cuando baje a 0
     pendingR = r; pendingG = g; pendingB = b;
     comandoPendiente = true;
-    Serial.println("[POD PERIFÉRICO] Sensor en 1 (HIGH). Esperando liberación (0)...");
   } else {
-    // Si está en 0, enciende inmediatamente
     comandoPendiente = false;
     encenderLEDs(r, g, b);
     startTime = millis();
     esperandoSensor = true;
-    Serial.println("[POD PERIFÉRICO] Sensor en 0 (LOW). LEDs encendidos, esperando reacción...");
   }
 }
 
-// Callbacks para recepción de comandos desde Central / App (EMPEZAR:R,G,B)
-class MyCallbacks: public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic *pCharacteristic) {
-      String rxValue = pCharacteristic->getValue().c_str();
-      if (rxValue.startsWith("EMPEZAR:")) {
-        String parametros = rxValue.substring(8);
-        int c1 = parametros.indexOf(',');
-        int c2 = parametros.indexOf(',', c1 + 1);
+// Callback al recibir orden por ESP-NOW desde el Central
+void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
+  memcpy(&datosEntrada, incomingData, sizeof(datosEntrada));
+  
+  // Guardar la MAC del Central para responderle después
+  memcpy(macCentral, recv_info->src_addr, 6);
 
-        if (c1 != -1 && c2 != -1) {
-          int r = parametros.substring(0, c1).toInt();
-          int g = parametros.substring(c1 + 1, c2).toInt();
-          int b = parametros.substring(c2 + 1).toInt();
-          solicitarEncendido((uint8_t)r, (uint8_t)g, (uint8_t)b);
-        }
-      }
-    }
-};
-
-// Callbacks para gestión de conexión BLE
-class MyServerCallbacks: public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) {
-      deviceConnected = true;
-      Serial.println("[POD PERIFÉRICO] Dispositivo conectado vía BLE.");
-    };
-
-    void onDisconnect(BLEServer* pServer) {
-      deviceConnected = false;
-      esperandoSensor = false;
-      comandoPendiente = false;
-      apagarLEDs();
-      Serial.println("[POD PERIFÉRICO] Desconectado. Reiniciando publicidad BLE...");
-      pServer->getAdvertising()->start();
-    }
-};
+  // Procesar solo si la orden es para este Pod
+  if (datosEntrada.podId == POD_ID && !datosEntrada.esReaccion) {
+    solicitarEncendido(datosEntrada.r, datosEntrada.g, datosEntrada.b);
+  }
+}
 
 void setup() {
   Serial.begin(115200);
-
-  // Inicialización de Hardware
   strip.begin();
   strip.setBrightness(128);
   apagarLEDs();
 
   pinMode(PIN_RCWL, INPUT);
 
-  // Inicialización de BLE
-  BLEDevice::init("ACTIVELO_POD_1");
-  
-  // Reducción de potencia BLE para minimizar interferencia RF sobre el sensor RCWL
-  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_N12);
+  WiFi.mode(WIFI_STA);
 
-  pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks());
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error al inicializar ESP-NOW en Pod 1");
+    return;
+  }
 
-  BLEService *pService = pServer->createService(SERVICE_UUID);
-
-  // Característica TX (Notificación hacia el Master/App: REACCION:ms)
-  pTxCharacteristic = pService->createCharacteristic(
-                        CHARACTERISTIC_UUID_TX,
-                        BLECharacteristic::PROPERTY_NOTIFY
-                      );
-  pTxCharacteristic->addDescriptor(new BLE2902());
-
-  // Característica RX (Escritura desde Master/App: EMPEZAR:R,G,B)
-  BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
-                                           CHARACTERISTIC_UUID_RX,
-                                           BLECharacteristic::PROPERTY_WRITE
-                                         );
-  pRxCharacteristic->setCallbacks(new MyCallbacks());
-
-  pService->start();
-
-  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID);
-  pAdvertising->setScanResponse(true);
-  pAdvertising->setMinPreferred(0x06);
-  pAdvertising->setMinPreferred(0x12);
-  BLEDevice::startAdvertising();
-
-  Serial.println("[POD PERIFÉRICO] Listo en GPIO 7 (24 LEDs) y GPIO 2 (Radar).");
+  esp_now_register_recv_cb(OnDataRecv);
+  Serial.println("[POD 1] Listo esperando órdenes ESP-NOW...");
 }
 
 void loop() {
-  // 1. APAGADO INSTANTÁNEO: Al primer 1 del sensor apaga los LEDs y transmite la medición
+  // 1. Detección de toque
   if (esperandoSensor && digitalRead(PIN_RCWL) == HIGH) {
     unsigned long reactionTime = millis() - startTime;
     esperandoSensor = false;
     apagarLEDs();
 
-    Serial.print("[POD PERIFÉRICO] Reacción registrada: ");
-    Serial.print(reactionTime);
-    Serial.println(" ms");
+    // Enviar tiempo de reacción al Central por ESP-NOW
+    datosSalida.podId = POD_ID;
+    datosSalida.reactionTime = reactionTime;
+    datosSalida.esReaccion = true;
 
-    if (deviceConnected && pTxCharacteristic != NULL) {
-      String mensaje = "REACCION:" + String(reactionTime);
-      pTxCharacteristic->setValue(mensaje.c_str());
-      pTxCharacteristic->notify();
+    // Registrar Central como peer si no está agregado
+    esp_now_peer_info_t peerInfo = {};
+    memcpy(peerInfo.peer_addr, macCentral, 6);
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+    
+    if (!esp_now_is_peer_exist(macCentral)) {
+      esp_now_add_peer(&peerInfo);
     }
+
+    esp_now_send(macCentral, (uint8_t *) &datosSalida, sizeof(datosSalida));
+    Serial.print("[POD 1] Reacción enviada al Central: ");
+    Serial.println(reactionTime);
   }
 
-  // 2. DESBLOQUEO DE NUEVA RONDA: Solo enciende cuando el RCWL retorne a 0
+  // 2. Desbloqueo de nueva ronda
   if (comandoPendiente && digitalRead(PIN_RCWL) == LOW) {
     comandoPendiente = false;
     encenderLEDs(pendingR, pendingG, pendingB);
     startTime = millis();
     esperandoSensor = true;
-    Serial.println("[POD PERIFÉRICO] Sensor liberado a 0. LEDs encendidos para la nueva ronda.");
   }
 
   delay(1);
