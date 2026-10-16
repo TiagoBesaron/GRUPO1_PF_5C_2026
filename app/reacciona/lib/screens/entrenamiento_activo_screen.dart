@@ -28,9 +28,7 @@ class _EntrenamientoActivoScreenState
   bool ledEncendido = false;
   bool sesionTerminada = false;
   
-  // Identificador del Pod que se encuentra encendido (0 = Central, 1 = Periférico)
   int podActivoActual = 0;
-  
   String estadoTexto = "Preparándote...";
 
   final List<List<int>> listaRGB = [
@@ -77,7 +75,6 @@ class _EntrenamientoActivoScreenState
       estadoTexto = "¡Atento!";
     });
 
-    // Espera aleatoria ultra rápida (entre 0.3s y 0.8s)
     int tiempoEsperaMs = 300 + Random().nextInt(500);
     await Future.delayed(Duration(milliseconds: tiempoEsperaMs));
 
@@ -90,13 +87,9 @@ class _EntrenamientoActivoScreenState
     if (sesionTerminada) return;
 
     List<int> rgb = obtenerRGBRonda();
-    
-    // Selección aleatoria entre Pod 0 (Central) y Pod 1 (Periférico ESP-NOW)
-    int podElegido = Random().nextInt(2); // Genera 0 o 1
+    int podElegido = Random().nextInt(2);
 
-    // Formato de comando para Master + ESP-NOW: EMPEZAR:POD_ID,R,G,B
     String comando = "EMPEZAR:$podElegido,${rgb[0]},${rgb[1]},${rgb[2]}";
-
     ref.read(bluetoothProvider.notifier).enviarComando(comando);
 
     setState(() {
@@ -109,7 +102,6 @@ class _EntrenamientoActivoScreenState
   }
 
   void _apagarLedManual() {
-    // Comando de apagar enviado al Pod que está activo actualmente
     String comando = "EMPEZAR:$podActivoActual,0,0,0";
     ref.read(bluetoothProvider.notifier).enviarComando(comando);
 
@@ -135,14 +127,12 @@ class _EntrenamientoActivoScreenState
     });
 
     if (modo != 'manual') {
-      // Pausa pos-toque mínima de 200 ms antes de preparar la siguiente ronda
       Future.delayed(const Duration(milliseconds: 200), () {
         if (mounted && !sesionTerminada) iniciarSiguienteRonda();
       });
     }
   }
 
-  // Notificación y detención por pérdida de conexión Bluetooth con el Central
   void _mostrarErrorDesconexion() {
     if (sesionTerminada || !mounted) return;
 
@@ -227,14 +217,13 @@ class _EntrenamientoActivoScreenState
   @override
   Widget build(BuildContext context) {
     ref.listen<BluetoothState>(bluetoothProvider, (prev, next) {
-      // 1. Detectar desconexión BLE
       if (prev?.conectado == true && !next.conectado) {
         _mostrarErrorDesconexion();
         return;
       }
 
-      // 2. Procesar llegada de tiempo de reacción
-      if (prev?.ultimoTiempo != next.ultimoTiempo && esperandoSensor) {
+      // Se usa reactionTicket para detectar cada disparo único
+      if (prev?.reactionTicket != next.reactionTicket && esperandoSensor) {
         procesarTiempoRespuesta(next.ultimoTiempo);
       }
     });
@@ -259,7 +248,6 @@ class _EntrenamientoActivoScreenState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Chip indicador de Pod Activo
               if (ledEncendido) ...[
                 Chip(
                   avatar: const Icon(Icons.sensors, color: Colors.white, size: 18),
@@ -276,7 +264,6 @@ class _EntrenamientoActivoScreenState
                 const SizedBox(height: 16),
               ],
 
-              // Representación visual del Pod encendido
               Container(
                 width: 120,
                 height: 120,
@@ -335,7 +322,6 @@ class _EntrenamientoActivoScreenState
                 const SizedBox(height: 24),
               ],
 
-              // Botones de control manual
               if (modo == 'manual') ...[
                 Row(
                   children: [
@@ -387,7 +373,6 @@ class _EntrenamientoActivoScreenState
                 const SizedBox(height: 20),
               ],
 
-              // Botón Finalizar Sesión
               SizedBox(
                 width: double.infinity,
                 height: 50,

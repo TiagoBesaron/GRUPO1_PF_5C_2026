@@ -20,7 +20,6 @@ class _ConfigEntrenamientoScreenState
   int _tiempoLimiteSeg = 30;
   String _colorSeleccionado = 'Verde';
 
-  // Variables para color personalizado (RGB 0 a 255)
   int _customR = 242;
   int _customG = 21;
   int _customB = 242;
@@ -136,7 +135,7 @@ class _ConfigEntrenamientoScreenState
               data: SliderThemeData(
                 activeTrackColor: activeColor,
                 thumbColor: activeColor,
-                inactiveTrackColor: activeColor.withValues(alpha: 0.2),
+                inactiveTrackColor: activeColor.withOpacity(0.2),
               ),
               child: Slider(
                 value: value.toDouble(),
@@ -179,32 +178,38 @@ class _ConfigEntrenamientoScreenState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: RadioGroup<ModoEntrenamiento>(
-                groupValue: _modo,
-                onChanged: (val) {
-                  if (val != null) setState(() => _modo = val);
-                },
-                child: Column(
-                  children: const [
-                    RadioListTile<ModoEntrenamiento>(
-                      title: Text('Por Rondas'),
-                      subtitle: Text('Completa un número fijo de toques'),
-                      value: ModoEntrenamiento.rondas,
-                    ),
-                    Divider(height: 1),
-                    RadioListTile<ModoEntrenamiento>(
-                      title: Text('Por Tiempo'),
-                      subtitle: Text('Toca la mayor cantidad antes de que venza el tiempo'),
-                      value: ModoEntrenamiento.tiempo,
-                    ),
-                    Divider(height: 1),
-                    RadioListTile<ModoEntrenamiento>(
-                      title: Text('Modo Manual'),
-                      subtitle: Text('Controlá la luz directamente desde la app'),
-                      value: ModoEntrenamiento.manual,
-                    ),
-                  ],
-                ),
+              child: Column(
+                children: [
+                  RadioListTile<ModoEntrenamiento>(
+                    title: const Text('Por Rondas'),
+                    subtitle: const Text('Completa un número fijo de toques'),
+                    value: ModoEntrenamiento.rondas,
+                    groupValue: _modo,
+                    onChanged: (val) {
+                      if (val != null) setState(() => _modo = val);
+                    },
+                  ),
+                  const Divider(height: 1),
+                  RadioListTile<ModoEntrenamiento>(
+                    title: const Text('Por Tiempo'),
+                    subtitle: const Text('Toca la mayor cantidad antes de que venza el tiempo'),
+                    value: ModoEntrenamiento.tiempo,
+                    groupValue: _modo,
+                    onChanged: (val) {
+                      if (val != null) setState(() => _modo = val);
+                    },
+                  ),
+                  const Divider(height: 1),
+                  RadioListTile<ModoEntrenamiento>(
+                    title: const Text('Modo Manual'),
+                    subtitle: const Text('Controlá la luz directamente desde la app'),
+                    value: ModoEntrenamiento.manual,
+                    groupValue: _modo,
+                    onChanged: (val) {
+                      if (val != null) setState(() => _modo = val);
+                    },
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
@@ -296,7 +301,7 @@ class _ConfigEntrenamientoScreenState
                           Expanded(
                             child: Text(
                               'En el Modo Manual podés encender y apagar el pod en cualquier momento con los botones de la pantalla.',
-                              style: TextStyle(fontSize: 15, color: Colors.black87),
+                              style: TextStyle(fontSize: 15),
                             ),
                           ),
                         ],

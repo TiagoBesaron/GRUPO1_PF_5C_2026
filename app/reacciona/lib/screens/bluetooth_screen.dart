@@ -16,19 +16,18 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
   bool isConnecting = false;
   List<ScanResult> scanResults = [];
   StreamSubscription<List<ScanResult>>? _scanSubscription;
+  StreamSubscription<bool>? _isScanningSubscription;
 
   @override
   void initState() {
     super.initState();
-    _startScan();
-  }
 
-  Future<void> _startScan() async {
-    await _scanSubscription?.cancel();
-
-    setState(() {
-      scanResults.clear();
-      isScanning = true;
+    _isScanningSubscription = FlutterBluePlus.isScanning.listen((scanning) {
+      if (mounted) {
+        setState(() {
+          isScanning = scanning;
+        });
+      }
     });
 
     _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
@@ -39,35 +38,42 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
       }
     });
 
-try {
-  await FlutterBluePlus.startScan(
-    withServices: [Guid("4fa8691a-0393-40a3-974f-0759e09f114d")],
-    timeout: const Duration(seconds: 15),
-  );
-} catch (e) {
-  debugPrint('Error en escaneo BLE: $e');
-}
+    _startScan();
+  }
 
-    if (mounted) {
-      setState(() {
-        isScanning = false;
-      });
+  Future<void> _startScan() async {
+    try {
+      if (FlutterBluePlus.isScanningNow) {
+        await FlutterBluePlus.stopScan();
+      }
+      if (mounted) {
+        setState(() {
+          scanResults.clear();
+        });
+      }
+
+      await FlutterBluePlus.startScan(
+        withServices: [Guid("4fa8691a-0393-40a3-974f-0759e09f114d")],
+        timeout: const Duration(seconds: 8),
+      );
+    } catch (e) {
+      debugPrint('Error en escaneo BLE: $e');
     }
   }
 
   Future<void> _stopScan() async {
-    await FlutterBluePlus.stopScan();
-    await _scanSubscription?.cancel();
-    if (mounted) {
-      setState(() {
-        isScanning = false;
-      });
+    try {
+      await FlutterBluePlus.stopScan();
+    } catch (e) {
+      debugPrint('Error al detener escaneo BLE: $e');
     }
   }
 
   Future<void> _conectarDispositivo(BluetoothDevice device) async {
     await _stopScan();
-    setState(() => isConnecting = true);
+    if (mounted) {
+      setState(() => isConnecting = true);
+    }
 
     try {
       await ref.read(bluetoothProvider.notifier).conectar(device);
@@ -78,7 +84,6 @@ try {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context, device);
       }
     } catch (e) {
       if (mounted) {
@@ -96,8 +101,21 @@ try {
     }
   }
 
+  Future<void> _desconectarDispositivo() async {
+    await ref.read(bluetoothProvider.notifier).desconectar();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Dispositivo desconectado"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
+    _isScanningSubscription?.cancel();
     _scanSubscription?.cancel();
     FlutterBluePlus.stopScan();
     super.dispose();
@@ -105,6 +123,7 @@ try {
 
   @override
   Widget build(BuildContext context) {
+    final btState = ref.watch(bluetoothProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -116,7 +135,40 @@ try {
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Dispositivo actualmente conectado
+              if (btState.conectado && btState.device != null) ...[
+                Card(
+                  color: isDark ? const Color(0xFF1B3A2B) : const Color(0xFFE8F5E9),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: Colors.green, width: 1.5),
+                  ),
+                  child: ListTile(
+                    leading: const Icon(Icons.bluetooth_connected, color: Colors.green, size: 30),
+                    title: Text(
+                      btState.device!.platformName.isNotEmpty
+                          ? btState.device!.platformName
+                          : 'ESP32 Activelo',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text('ID: ${btState.device!.remoteId}'),
+                    trailing: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: _desconectarDispositivo,
+                      child: const Text('Desconectar'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+              ],
+
               if (isScanning || isConnecting)
                 const Padding(
                   padding: EdgeInsets.only(bottom: 12.0),
@@ -125,12 +177,19 @@ try {
                     backgroundColor: Color(0xFFFFE0B2),
                   ),
                 ),
+
+              const Text(
+                "Dispositivos disponibles:",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+
               Expanded(
                 child: scanResults.isEmpty
                     ? Center(
                         child: Text(
                           isScanning
-                              ? 'Buscando dispositivos cercanos...'
+                              ? 'Buscando pods cercanos...'
                               : 'No se encontraron dispositivos.',
                           style: TextStyle(
                             color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -141,9 +200,13 @@ try {
                         itemCount: scanResults.length,
                         itemBuilder: (context, index) {
                           final result = scanResults[index];
-                          final deviceName = result.device.platformName.isNotEmpty
-                              ? result.device.platformName
-                              : 'Dispositivo sin nombre';
+                          final device = result.device;
+                          final deviceName = device.platformName.isNotEmpty
+                              ? device.platformName
+                              : 'Pod Activelo';
+
+                          final isThisConnected = btState.conectado &&
+                              btState.device?.remoteId == device.remoteId;
 
                           return Card(
                             elevation: 1,
@@ -154,16 +217,16 @@ try {
                                 deviceName,
                                 style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
-                              subtitle: Text('ID: ${result.device.remoteId}'),
+                              subtitle: Text('ID: ${device.remoteId}'),
                               trailing: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue,
+                                  backgroundColor: isThisConnected ? Colors.green : Colors.blue,
                                   foregroundColor: Colors.white,
                                 ),
-                                onPressed: isConnecting
+                                onPressed: isConnecting || isThisConnected
                                     ? null
-                                    : () => _conectarDispositivo(result.device),
-                                child: const Text('Conectar'),
+                                    : () => _conectarDispositivo(device),
+                                child: Text(isThisConnected ? 'Conectado' : 'Conectar'),
                               ),
                             ),
                           );
@@ -171,6 +234,7 @@ try {
                       ),
               ),
               const SizedBox(height: 16),
+
               SizedBox(
                 width: double.infinity,
                 height: 50,
