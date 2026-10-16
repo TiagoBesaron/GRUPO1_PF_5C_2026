@@ -1,6 +1,7 @@
 #include <esp_now.h>
 #include <WiFi.h>
 #include <Adafruit_NeoPixel.h>
+#include <esp_wifi.h>
 
 #define PIN_NEOPIXEL   7
 #define NUM_PIXELS     24
@@ -75,6 +76,7 @@ void setup() {
   pinMode(PIN_RCWL, INPUT);
 
   WiFi.mode(WIFI_STA);
+  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
 
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error al inicializar ESP-NOW en Pod 1");

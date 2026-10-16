@@ -5,19 +5,21 @@
 #include <Adafruit_NeoPixel.h>
 #include <esp_now.h>
 #include <WiFi.h>
+#include <esp_wifi.h>
 
-#define PIN_NEOPIXEL   7
-#define NUM_PIXELS     24
-#define PIN_RCWL       2
+#define PIN_NEOPIXEL 7
+#define NUM_PIXELS 24
+#define PIN_RCWL 2
 
-#define SERVICE_UUID           "4fa8691a-0393-40a3-974f-0759e09f114d"
+#define SERVICE_UUID "4fa8691a-0393-40a3-974f-0759e09f114d"
 #define CHARACTERISTIC_UUID_RX "87b54dba-055b-4321-8525-2b2a239385c7"
 #define CHARACTERISTIC_UUID_TX "d7b54dba-055b-4321-8525-2b2a239385c8"
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 // REEMPLAZAR CON LA MAC REAL DEL POD 1 OBTENIDA EN EL PASO 1
-uint8_t macPod1[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; 
+uint8_t macPod1[] = { 0x44, 0xBD, 0x8D, 0x5E, 0x0B, 0xBC };
+
 
 typedef struct struct_message {
   uint8_t podId;
@@ -31,8 +33,8 @@ typedef struct struct_message {
 struct_message datosEnvio;
 struct_message datosRecepcion;
 
-BLEServer* pServer = NULL;
-BLECharacteristic* pTxCharacteristic = NULL;
+BLEServer *pServer = NULL;
+BLECharacteristic *pTxCharacteristic = NULL;
 bool appConectada = false;
 
 bool esperandoSensorLocal = false;
@@ -55,7 +57,9 @@ void encenderLEDsLocales(uint8_t r, uint8_t g, uint8_t b) {
 void solicitarEncendidoLocal(uint8_t r, uint8_t g, uint8_t b) {
   if (!appConectada) return;
   if (digitalRead(PIN_RCWL) == HIGH) {
-    pendingR = r; pendingG = g; pendingB = b;
+    pendingR = r;
+    pendingG = g;
+    pendingB = b;
     comandoPendienteLocal = true;
   } else {
     comandoPendienteLocal = false;
@@ -79,47 +83,51 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
   }
 }
 
-class ServerCallbacks: public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) { appConectada = true; }
-    void onDisconnect(BLEServer* pServer) {
-      appConectada = false;
-      esperandoSensorLocal = false;
-      apagarLEDsLocales();
-      pServer->getAdvertising()->start();
-    }
+class ServerCallbacks : public BLEServerCallbacks {
+  void onConnect(BLEServer *pServer) {
+    appConectada = true;
+  }
+  void onDisconnect(BLEServer *pServer) {
+    appConectada = false;
+    esperandoSensorLocal = false;
+    apagarLEDsLocales();
+    pServer->getAdvertising()->start();
+  }
 };
 
-class CharacteristicCallbacks: public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic *pCharacteristic) {
-      if (!appConectada) return;
-      String rxValue = pCharacteristic->getValue().c_str();
+class CharacteristicCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *pCharacteristic) {
+    if (!appConectada) return;
+    String rxValue = pCharacteristic->getValue().c_str();
 
-      // Formato comando: EMPEZAR:POD_ID,R,G,B (ejemplo EMPEZAR:0,255,0,0 o EMPEZAR:1,0,255,0)
-      if (rxValue.startsWith("EMPEZAR:")) {
-        String parametros = rxValue.substring(8);
-        int c1 = parametros.indexOf(',');
-        int c2 = parametros.indexOf(',', c1 + 1);
-        int c3 = parametros.indexOf(',', c2 + 1);
+    // Formato comando: EMPEZAR:POD_ID,R,G,B (ejemplo EMPEZAR:0,255,0,0 o EMPEZAR:1,0,255,0)
+    if (rxValue.startsWith("EMPEZAR:")) {
+      String parametros = rxValue.substring(8);
+      int c1 = parametros.indexOf(',');
+      int c2 = parametros.indexOf(',', c1 + 1);
+      int c3 = parametros.indexOf(',', c2 + 1);
 
-        if (c1 != -1 && c2 != -1 && c3 != -1) {
-          int podTarget = parametros.substring(0, c1).toInt();
-          int r = parametros.substring(c1 + 1, c2).toInt();
-          int g = parametros.substring(c2 + 1, c3).toInt();
-          int b = parametros.substring(c3 + 1).toInt();
+      if (c1 != -1 && c2 != -1 && c3 != -1) {
+        int podTarget = parametros.substring(0, c1).toInt();
+        int r = parametros.substring(c1 + 1, c2).toInt();
+        int g = parametros.substring(c2 + 1, c3).toInt();
+        int b = parametros.substring(c3 + 1).toInt();
 
-          if (podTarget == 0) {
-            // Activar LEDs en el propio Central (Pod 0)
-            solicitarEncendidoLocal((uint8_t)r, (uint8_t)g, (uint8_t)b);
-          } else if (podTarget == 1) {
-            // Enviar orden por ESP-NOW a Pod 1
-            datosEnvio.podId = 1;
-            datosEnvio.r = r; datosEnvio.g = g; datosEnvio.b = b;
-            datosEnvio.esReaccion = false;
-            esp_now_send(macPod1, (uint8_t *) &datosEnvio, sizeof(datosEnvio));
-          }
+        if (podTarget == 0) {
+          // Activar LEDs en el propio Central (Pod 0)
+          solicitarEncendidoLocal((uint8_t)r, (uint8_t)g, (uint8_t)b);
+        } else if (podTarget == 1) {
+          // Enviar orden por ESP-NOW a Pod 1
+          datosEnvio.podId = 1;
+          datosEnvio.r = r;
+          datosEnvio.g = g;
+          datosEnvio.b = b;
+          datosEnvio.esReaccion = false;
+          esp_now_send(macPod1, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
         }
       }
     }
+  }
 };
 
 void setup() {
@@ -131,6 +139,7 @@ void setup() {
 
   // Inicializar WiFi en modo dual STA para ESP-NOW
   WiFi.mode(WIFI_STA);
+  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
 
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error al inicializar ESP-NOW en Central");
@@ -152,13 +161,11 @@ void setup() {
 
   BLEService *pService = pServer->createService(SERVICE_UUID);
   pTxCharacteristic = pService->createCharacteristic(
-                        CHARACTERISTIC_UUID_TX, BLECharacteristic::PROPERTY_NOTIFY
-                      );
+    CHARACTERISTIC_UUID_TX, BLECharacteristic::PROPERTY_NOTIFY);
   pTxCharacteristic->addDescriptor(new BLE2902());
 
   BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
-                                           CHARACTERISTIC_UUID_RX, BLECharacteristic::PROPERTY_WRITE
-                                         );
+    CHARACTERISTIC_UUID_RX, BLECharacteristic::PROPERTY_WRITE);
   pRxCharacteristic->setCallbacks(new CharacteristicCallbacks());
 
   pService->start();
@@ -170,7 +177,10 @@ void setup() {
 }
 
 void loop() {
-  if (!appConectada) { delay(10); return; }
+  if (!appConectada) {
+    delay(10);
+    return;
+  }
 
   if (esperandoSensorLocal && digitalRead(PIN_RCWL) == HIGH) {
     unsigned long reactionTime = millis() - startTimeLocal;
