@@ -25,7 +25,7 @@ class _EntrenamientoActivoScreenState
   int tiempoRestanteSeg = 0;
   Timer? _timerTiempo;
 
-  late String modo; // 'rondas', 'tiempo', 'manual'
+  late String modo; // 'rondas', 'tiempo', 'manual', 'bicolor'
   List<double> tiemposObtenidos = [];
   bool esperandoSensor = false;
   bool enPausaEntreRondas = false;
@@ -81,13 +81,19 @@ class _EntrenamientoActivoScreenState
     });
   }
 
-  // Obtiene el color base y aplica el % de intensidad seleccionado
+  // Obtiene el color correspondiente aplicando intensidad
   List<int> obtenerRGBRonda() {
     double factorIntensidad =
         ((widget.config['intensidad'] ?? 100) as num) / 100.0;
     List<int> rawRgb;
 
-    if (widget.config['colorAleatorio'] == true) {
+    if (modo == 'bicolor') {
+      // Elige aleatoriamente 50/50 entre Color 1 y Color 2
+      bool elegirColor1 = Random().nextBool();
+      List<int> c1 = List<int>.from(widget.config['rgbBase'] ?? [0, 255, 0]);
+      List<int> c2 = List<int>.from(widget.config['rgbBase2'] ?? [255, 0, 0]);
+      rawRgb = elegirColor1 ? c1 : c2;
+    } else if (widget.config['colorAleatorio'] == true) {
       rawRgb = listaRGB[Random().nextInt(listaRGB.length)];
     } else {
       rawRgb = List<int>.from(widget.config['rgbBase'] ?? [0, 255, 0]);
@@ -103,7 +109,7 @@ class _EntrenamientoActivoScreenState
   Future<void> iniciarSiguienteRonda() async {
     if (sesionTerminada) return;
 
-    if (modo == 'rondas' && rondaActual >= rondasTotal) {
+    if ((modo == 'rondas' || modo == 'bicolor') && rondaActual >= rondasTotal) {
       finalizarEntrenamiento();
       return;
     }
@@ -115,7 +121,10 @@ class _EntrenamientoActivoScreenState
       estadoTexto = "¡Atento!";
     });
 
-    int tiempoEsperaMs = 300 + Random().nextInt(500);
+    double delaySeg =
+        ((widget.config['tiempoEntrePodsSeg'] ?? 1.0) as num).toDouble();
+    int tiempoEsperaMs = (delaySeg * 1000).round();
+
     await Future.delayed(Duration(milliseconds: tiempoEsperaMs));
 
     if (!mounted || sesionTerminada) return;
@@ -288,6 +297,8 @@ class _EntrenamientoActivoScreenState
       return "Modo Manual (Toques: ${tiemposObtenidos.length})";
     } else if (modo == 'tiempo') {
       return "Tiempo: ${tiempoRestanteSeg}s | Toques: ${tiemposObtenidos.length}";
+    } else if (modo == 'bicolor') {
+      return "Bicolor | Ronda $rondaActual de $rondasTotal";
     } else {
       return "Ronda $rondaActual de $rondasTotal";
     }
@@ -341,7 +352,7 @@ class _EntrenamientoActivoScreenState
                 const SizedBox(height: 16),
               ],
 
-              // VISTA PARA MODO MANUAL (Cuadrados interactivos Pod 1 y Pod 2)
+              // VISTA PARA MODO MANUAL
               if (modo == 'manual') ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -364,7 +375,7 @@ class _EntrenamientoActivoScreenState
                   ],
                 ),
               ] else ...[
-                // VISTA PARA MODO RONDAS / TIEMPO (Luz circular central)
+                // VISTA PARA MODO RONDAS / TIEMPO / BICOLOR
                 Container(
                   width: 120,
                   height: 120,
@@ -487,7 +498,6 @@ class _EntrenamientoActivoScreenState
     );
   }
 
-  // WIDGET CUADRADO PARA SELECCIÓN DE POD EN MODO MANUAL
   Widget _buildPodSquare({
     required int podIndex,
     required String label,

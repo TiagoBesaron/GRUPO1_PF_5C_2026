@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../provider/bluetooth_provider.dart';
 
-enum ModoEntrenamiento { rondas, tiempo, manual }
+enum ModoEntrenamiento { rondas, tiempo, manual, bicolor }
 
 class ConfigEntrenamientoScreen extends ConsumerStatefulWidget {
   const ConfigEntrenamientoScreen({super.key});
@@ -18,8 +18,12 @@ class _ConfigEntrenamientoScreenState
   ModoEntrenamiento _modo = ModoEntrenamiento.rondas;
   int _rondas = 10;
   int _tiempoLimiteSeg = 30;
+
   String _colorSeleccionado = 'Verde';
+  String _colorSeleccionado2 = 'Rojo'; // Segundo color para Modo Bicolor
+
   int _intensidad = 100; // Porcentaje de brillo (10% a 100%)
+  double _tiempoEntrePodsSeg = 1.0; // Intervalo de pausa (0.2s a 5.0s)
 
   int _customR = 242;
   int _customG = 21;
@@ -33,6 +37,27 @@ class _ConfigEntrenamientoScreenState
     'Personalizado',
     'Aleatorio'
   ];
+
+  final List<String> _coloresBicolor = [
+    'Verde',
+    'Rojo',
+    'Azul',
+    'Amarillo',
+  ];
+
+  List<int> _colorNameToRGB(String color) {
+    switch (color) {
+      case 'Rojo':
+        return [255, 0, 0];
+      case 'Azul':
+        return [0, 0, 255];
+      case 'Amarillo':
+        return [255, 255, 0];
+      case 'Verde':
+      default:
+        return [0, 255, 0];
+    }
+  }
 
   void _navegarAEntrenamiento() {
     final btState = ref.read(bluetoothProvider);
@@ -57,36 +82,28 @@ class _ConfigEntrenamientoScreenState
     }
 
     List<int> rgbBase;
-    switch (_colorSeleccionado) {
-      case 'Rojo':
-        rgbBase = [255, 0, 0];
-        break;
-      case 'Azul':
-        rgbBase = [0, 0, 255];
-        break;
-      case 'Amarillo':
-        rgbBase = [255, 255, 0];
-        break;
-      case 'Personalizado':
-        rgbBase = [_customR, _customG, _customB];
-        break;
-      case 'Verde':
-      default:
-        rgbBase = [0, 255, 0];
-        break;
+    if (_colorSeleccionado == 'Personalizado') {
+      rgbBase = [_customR, _customG, _customB];
+    } else {
+      rgbBase = _colorNameToRGB(_colorSeleccionado);
     }
+
+    List<int> rgbBase2 = _colorNameToRGB(_colorSeleccionado2);
 
     String modoStr = 'rondas';
     if (_modo == ModoEntrenamiento.tiempo) modoStr = 'tiempo';
     if (_modo == ModoEntrenamiento.manual) modoStr = 'manual';
+    if (_modo == ModoEntrenamiento.bicolor) modoStr = 'bicolor';
 
     final config = {
       'modo': modoStr,
-      'rondasTotal': _modo == ModoEntrenamiento.rondas ? _rondas : 0,
+      'rondasTotal': (_modo == ModoEntrenamiento.rondas || _modo == ModoEntrenamiento.bicolor) ? _rondas : 0,
       'tiempoLimiteSeg': _tiempoLimiteSeg,
       'colorAleatorio': _colorSeleccionado == 'Aleatorio',
       'rgbBase': rgbBase,
-      'intensidad': _intensidad, // Pasamos el porcentaje de brillo
+      'rgbBase2': rgbBase2,
+      'intensidad': _intensidad,
+      'tiempoEntrePodsSeg': _tiempoEntrePodsSeg,
     };
 
     context.push('/entrenamiento-activo', extra: config);
@@ -200,6 +217,12 @@ class _ConfigEntrenamientoScreenState
                     ),
                     Divider(height: 1),
                     RadioListTile<ModoEntrenamiento>(
+                      title: Text('Modo Bicolor'),
+                      subtitle: Text('Alterna aleatoriamente entre 2 colores'),
+                      value: ModoEntrenamiento.bicolor,
+                    ),
+                    Divider(height: 1),
+                    RadioListTile<ModoEntrenamiento>(
                       title: Text('Modo Manual'),
                       subtitle: Text('Controlá la luz directamente desde la app'),
                       value: ModoEntrenamiento.manual,
@@ -209,8 +232,10 @@ class _ConfigEntrenamientoScreenState
               ),
             ),
             const SizedBox(height: 24),
+
+            // PARÁMETROS DEL MODO
             Text(
-              _modo == ModoEntrenamiento.rondas
+              _modo == ModoEntrenamiento.rondas || _modo == ModoEntrenamiento.bicolor
                   ? 'Parámetros de Rondas'
                   : (_modo == ModoEntrenamiento.tiempo
                       ? 'Parámetros de Tiempo'
@@ -231,7 +256,7 @@ class _ConfigEntrenamientoScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (_modo == ModoEntrenamiento.rondas) ...[
+                    if (_modo == ModoEntrenamiento.rondas || _modo == ModoEntrenamiento.bicolor) ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -309,10 +334,80 @@ class _ConfigEntrenamientoScreenState
             ),
             const SizedBox(height: 24),
 
+            // SECCIÓN DE INTERVALO / TIEMPO ENTRE PODS
+            if (_modo != ModoEntrenamiento.manual) ...[
+              const Text(
+                'Intervalo entre Pods',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.timer_outlined, color: Colors.blueAccent),
+                              SizedBox(width: 8),
+                              Text(
+                                'Pausa entre toques:',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Chip(
+                            label: Text(
+                              '${_tiempoEntrePodsSeg.toStringAsFixed(1)}s',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blueAccent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SliderTheme(
+                        data: SliderThemeData(
+                          activeTrackColor: Colors.blueAccent,
+                          thumbColor: Colors.blueAccent,
+                          inactiveTrackColor: Colors.blueAccent.withValues(alpha: 0.2),
+                        ),
+                        child: Slider(
+                          value: _tiempoEntrePodsSeg,
+                          min: 0.2,
+                          max: 5.0,
+                          divisions: 48,
+                          label: '${_tiempoEntrePodsSeg.toStringAsFixed(1)}s',
+                          onChanged: (val) {
+                            setState(() => _tiempoEntrePodsSeg = val);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
             // SECCIÓN DE COLOR
-            const Text(
-              'Color de los LEDs',
-              style: TextStyle(
+            Text(
+              _modo == ModoEntrenamiento.bicolor ? 'Colores Bicolor' : 'Color de los LEDs',
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -325,85 +420,126 @@ class _ConfigEntrenamientoScreenState
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: _colorSeleccionado,
-                      decoration: const InputDecoration(
-                        labelText: 'Seleccionar Color Base',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.palette),
-                      ),
-                      items: _coloresDisponibles.map((color) {
-                        return DropdownMenuItem(
-                          value: color,
-                          child: Text(color),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _colorSeleccionado = val);
-                        }
-                      },
-                    ),
-                    if (_colorSeleccionado == 'Personalizado') ...[
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Ajuste de Color RGB:',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildRgbSlider(
-                        label: 'R',
-                        value: _customR,
-                        activeColor: Colors.red,
-                        onChanged: (val) => setState(() => _customR = val.round()),
-                      ),
-                      _buildRgbSlider(
-                        label: 'G',
-                        value: _customG,
-                        activeColor: Colors.green,
-                        onChanged: (val) => setState(() => _customG = val.round()),
-                      ),
-                      _buildRgbSlider(
-                        label: 'B',
-                        value: _customB,
-                        activeColor: Colors.blue,
-                        onChanged: (val) => setState(() => _customB = val.round()),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
+                child: _modo == ModoEntrenamiento.bicolor
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Vista previa: ',
-                            style: TextStyle(fontWeight: FontWeight.w500),
+                          DropdownButtonFormField<String>(
+                            initialValue: _colorSeleccionado,
+                            decoration: const InputDecoration(
+                              labelText: 'Color 1',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.palette, color: Colors.blueAccent),
+                            ),
+                            items: _coloresBicolor.map((color) {
+                              return DropdownMenuItem(
+                                value: color,
+                                child: Text(color),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) setState(() => _colorSeleccionado = val);
+                            },
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: Color.fromRGBO(_customR, _customG, _customB, 1.0),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.black26, width: 2),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Color.fromRGBO(_customR, _customG, _customB, 0.4),
-                                  blurRadius: 8,
-                                  spreadRadius: 2,
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            initialValue: _colorSeleccionado2,
+                            decoration: const InputDecoration(
+                              labelText: 'Color 2',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.palette_outlined, color: Colors.orangeAccent),
+                            ),
+                            items: _coloresBicolor.map((color) {
+                              return DropdownMenuItem(
+                                value: color,
+                                child: Text(color),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) setState(() => _colorSeleccionado2 = val);
+                            },
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          DropdownButtonFormField<String>(
+                            initialValue: _colorSeleccionado,
+                            decoration: const InputDecoration(
+                              labelText: 'Seleccionar Color Base',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.palette),
+                            ),
+                            items: _coloresDisponibles.map((color) {
+                              return DropdownMenuItem(
+                                value: color,
+                                child: Text(color),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _colorSeleccionado = val);
+                              }
+                            },
+                          ),
+                          if (_colorSeleccionado == 'Personalizado') ...[
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Ajuste de Color RGB:',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildRgbSlider(
+                              label: 'R',
+                              value: _customR,
+                              activeColor: Colors.red,
+                              onChanged: (val) => setState(() => _customR = val.round()),
+                            ),
+                            _buildRgbSlider(
+                              label: 'G',
+                              value: _customG,
+                              activeColor: Colors.green,
+                              onChanged: (val) => setState(() => _customG = val.round()),
+                            ),
+                            _buildRgbSlider(
+                              label: 'B',
+                              value: _customB,
+                              activeColor: Colors.blue,
+                              onChanged: (val) => setState(() => _customB = val.round()),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                const Text(
+                                  'Vista previa: ',
+                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Color.fromRGBO(_customR, _customG, _customB, 1.0),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.black26, width: 2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Color.fromRGBO(_customR, _customG, _customB, 0.4),
+                                        blurRadius: 8,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
+                          ],
                         ],
                       ),
-                    ],
-                  ],
-                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -463,7 +599,7 @@ class _ConfigEntrenamientoScreenState
                         value: _intensidad.toDouble(),
                         min: 10,
                         max: 100,
-                        divisions: 18, // Pasos de 5%
+                        divisions: 18,
                         label: '$_intensidad%',
                         onChanged: (val) {
                           setState(() => _intensidad = val.round());
