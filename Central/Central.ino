@@ -17,8 +17,8 @@
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
-// REEMPLAZAR CON LA MAC REAL DEL POD 1
-uint8_t macPod1[] = { 0x44, 0xBD, 0x8D, 0x5E, 0x0B, 0xBC };
+
+uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x87, 0x0F, 0xA4 };
 
 typedef struct struct_message {
   uint8_t podId;
