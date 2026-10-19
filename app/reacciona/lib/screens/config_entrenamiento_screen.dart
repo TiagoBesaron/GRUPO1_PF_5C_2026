@@ -135,7 +135,7 @@ class _ConfigEntrenamientoScreenState
               data: SliderThemeData(
                 activeTrackColor: activeColor,
                 thumbColor: activeColor,
-                inactiveTrackColor: activeColor.withOpacity(0.2),
+                inactiveTrackColor: activeColor.withValues(alpha: 0.2),
               ),
               child: Slider(
                 value: value.toDouble(),
@@ -178,38 +178,32 @@ class _ConfigEntrenamientoScreenState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                children: [
-                  RadioListTile<ModoEntrenamiento>(
-                    title: const Text('Por Rondas'),
-                    subtitle: const Text('Completa un número fijo de toques'),
-                    value: ModoEntrenamiento.rondas,
-                    groupValue: _modo,
-                    onChanged: (val) {
-                      if (val != null) setState(() => _modo = val);
-                    },
-                  ),
-                  const Divider(height: 1),
-                  RadioListTile<ModoEntrenamiento>(
-                    title: const Text('Por Tiempo'),
-                    subtitle: const Text('Toca la mayor cantidad antes de que venza el tiempo'),
-                    value: ModoEntrenamiento.tiempo,
-                    groupValue: _modo,
-                    onChanged: (val) {
-                      if (val != null) setState(() => _modo = val);
-                    },
-                  ),
-                  const Divider(height: 1),
-                  RadioListTile<ModoEntrenamiento>(
-                    title: const Text('Modo Manual'),
-                    subtitle: const Text('Controlá la luz directamente desde la app'),
-                    value: ModoEntrenamiento.manual,
-                    groupValue: _modo,
-                    onChanged: (val) {
-                      if (val != null) setState(() => _modo = val);
-                    },
-                  ),
-                ],
+              child: RadioGroup<ModoEntrenamiento>(
+                groupValue: _modo,
+                onChanged: (val) {
+                  if (val != null) setState(() => _modo = val);
+                },
+                child: Column(
+                  children: const [
+                    RadioListTile<ModoEntrenamiento>(
+                      title: Text('Por Rondas'),
+                      subtitle: Text('Completa un número fijo de toques'),
+                      value: ModoEntrenamiento.rondas,
+                    ),
+                    Divider(height: 1),
+                    RadioListTile<ModoEntrenamiento>(
+                      title: Text('Por Tiempo'),
+                      subtitle: Text('Toca la mayor cantidad antes de que venza el tiempo'),
+                      value: ModoEntrenamiento.tiempo,
+                    ),
+                    Divider(height: 1),
+                    RadioListTile<ModoEntrenamiento>(
+                      title: Text('Modo Manual'),
+                      subtitle: Text('Controlá la luz directamente desde la app'),
+                      value: ModoEntrenamiento.manual,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 24),

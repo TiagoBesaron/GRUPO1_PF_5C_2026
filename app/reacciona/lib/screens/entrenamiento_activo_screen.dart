@@ -21,14 +21,18 @@ class _EntrenamientoActivoScreenState
     extends ConsumerState<EntrenamientoActivoScreen> {
   int rondaActual = 0;
   late int rondasTotal;
-  late String modo;
+  late int tiempoLimiteSeg;
+  int tiempoRestanteSeg = 0;
+  Timer? _timerTiempo;
+
+  late String modo; // 'rondas', 'tiempo', 'manual'
   List<double> tiemposObtenidos = [];
   bool esperandoSensor = false;
   bool enPausaEntreRondas = false;
   bool ledEncendido = false;
   bool sesionTerminada = false;
-  
-  int podActivoActual = 0;
+
+  int podActivoActual = -1; // -1 significa ningún pod activo
   String estadoTexto = "Preparándote...";
 
   final List<List<int>> listaRGB = [
@@ -44,13 +48,37 @@ class _EntrenamientoActivoScreenState
     super.initState();
     modo = widget.config['modo'] ?? 'rondas';
     rondasTotal = widget.config['rondasTotal'] ?? 10;
+    tiempoLimiteSeg = widget.config['tiempoLimiteSeg'] ?? 30;
 
     if (modo == 'manual') {
-      estadoTexto = "Modo Manual: Presioná 'ENCENDER' para activar un pod.";
+      estadoTexto = "Tocá un cuadrado para encender su Pod";
     } else {
+      if (modo == 'tiempo') {
+        tiempoRestanteSeg = tiempoLimiteSeg;
+        _iniciarCronometro();
+      }
       WidgetsBinding.instance
           .addPostFrameCallback((_) => iniciarSiguienteRonda());
     }
+  }
+
+  void _iniciarCronometro() {
+    _timerTiempo?.cancel();
+    _timerTiempo = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || sesionTerminada) {
+        timer.cancel();
+        return;
+      }
+      if (tiempoRestanteSeg <= 1) {
+        timer.cancel();
+        setState(() => tiempoRestanteSeg = 0);
+        finalizarEntrenamiento();
+      } else {
+        setState(() {
+          tiempoRestanteSeg--;
+        });
+      }
+    });
   }
 
   List<int> obtenerRGBRonda() {
@@ -63,7 +91,7 @@ class _EntrenamientoActivoScreenState
   Future<void> iniciarSiguienteRonda() async {
     if (sesionTerminada) return;
 
-    if (modo != 'manual' && rondaActual >= rondasTotal) {
+    if (modo == 'rondas' && rondaActual >= rondasTotal) {
       finalizarEntrenamiento();
       return;
     }
@@ -80,35 +108,50 @@ class _EntrenamientoActivoScreenState
 
     if (!mounted || sesionTerminada) return;
 
-    _encenderLedManual();
+    int podAleatorio = Random().nextInt(2);
+    _encenderPod(podAleatorio);
   }
 
-  void _encenderLedManual() {
+  void _togglePodManual(int podIndex) {
+    if (sesionTerminada) return;
+
+    if (ledEncendido && podActivoActual == podIndex) {
+      _apagarPodActual();
+    } else {
+      _encenderPod(podIndex);
+    }
+  }
+
+  void _encenderPod(int podIndex) {
     if (sesionTerminada) return;
 
     List<int> rgb = obtenerRGBRonda();
-    int podElegido = Random().nextInt(2);
 
-    String comando = "EMPEZAR:$podElegido,${rgb[0]},${rgb[1]},${rgb[2]}";
+    String comando = "EMPEZAR:$podIndex,${rgb[0]},${rgb[1]},${rgb[2]}";
     ref.read(bluetoothProvider.notifier).enviarComando(comando);
 
     setState(() {
       enPausaEntreRondas = false;
       esperandoSensor = true;
       ledEncendido = true;
-      podActivoActual = podElegido;
-      estadoTexto = "¡PASA LA MANO POR EL POD $podElegido!";
+      podActivoActual = podIndex;
+      estadoTexto = "¡Pasa la mano por el Pod ${podIndex + 1}!";
     });
   }
 
-  void _apagarLedManual() {
-    String comando = "EMPEZAR:$podActivoActual,0,0,0";
-    ref.read(bluetoothProvider.notifier).enviarComando(comando);
+  void _apagarPodActual() {
+    if (podActivoActual != -1) {
+      String comando = "EMPEZAR:$podActivoActual,0,0,0";
+      ref.read(bluetoothProvider.notifier).enviarComando(comando);
+    }
 
     setState(() {
       esperandoSensor = false;
       ledEncendido = false;
-      estadoTexto = "LED Apagado manualmente.";
+      podActivoActual = -1;
+      estadoTexto = modo == 'manual'
+          ? "Seleccioná un Pod para encender"
+          : "LED Apagado.";
     });
   }
 
@@ -119,11 +162,14 @@ class _EntrenamientoActivoScreenState
         double.tryParse(ultimoTiempoStr.replaceAll(" s", "")) ?? 0.0;
     tiemposObtenidos.add(tiempoSeg);
 
+    int podPrevio = podActivoActual;
+
     setState(() {
       esperandoSensor = false;
       ledEncendido = false;
+      podActivoActual = -1;
       estadoTexto =
-          "¡Toque en Pod $podActivoActual! (${tiempoSeg.toStringAsFixed(3)} s)";
+          "¡Toque en Pod ${podPrevio + 1}! (${tiempoSeg.toStringAsFixed(3)} s)";
     });
 
     if (modo != 'manual') {
@@ -136,10 +182,12 @@ class _EntrenamientoActivoScreenState
   void _mostrarErrorDesconexion() {
     if (sesionTerminada || !mounted) return;
 
+    _timerTiempo?.cancel();
     setState(() {
       sesionTerminada = true;
       esperandoSensor = false;
       ledEncendido = false;
+      podActivoActual = -1;
     });
 
     showDialog(
@@ -171,7 +219,10 @@ class _EntrenamientoActivoScreenState
 
   Future<void> finalizarEntrenamiento() async {
     if (sesionTerminada) return;
+    _timerTiempo?.cancel();
     setState(() => sesionTerminada = true);
+
+    _apagarPodActual();
 
     double promedio = tiemposObtenidos.isEmpty
         ? 0
@@ -182,7 +233,7 @@ class _EntrenamientoActivoScreenState
       final ref =
           FirebaseDatabase.instance.ref("usuarios/${user.uid}/sesiones");
       await ref.push().set({
-        "rondas": modo == 'manual' ? tiemposObtenidos.length : rondasTotal,
+        "rondas": tiemposObtenidos.length,
         "modo": modo,
         "promedio_seg": promedio,
         "tiempos": tiemposObtenidos,
@@ -215,6 +266,22 @@ class _EntrenamientoActivoScreenState
   }
 
   @override
+  void dispose() {
+    _timerTiempo?.cancel();
+    super.dispose();
+  }
+
+  String _getTituloAppBar() {
+    if (modo == 'manual') {
+      return "Modo Manual (Toques: ${tiemposObtenidos.length})";
+    } else if (modo == 'tiempo') {
+      return "Tiempo: ${tiempoRestanteSeg}s | Toques: ${tiemposObtenidos.length}";
+    } else {
+      return "Ronda $rondaActual de $rondasTotal";
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     ref.listen<BluetoothState>(bluetoothProvider, (prev, next) {
       if (prev?.conectado == true && !next.conectado) {
@@ -222,7 +289,6 @@ class _EntrenamientoActivoScreenState
         return;
       }
 
-      // Se usa reactionTicket para detectar cada disparo único
       if (prev?.reactionTicket != next.reactionTicket && esperandoSensor) {
         procesarTiempoRespuesta(next.ultimoTiempo);
       }
@@ -231,14 +297,11 @@ class _EntrenamientoActivoScreenState
     List<int> currentRgb = widget.config['rgbBase'] ?? [0, 255, 0];
     Color currentColor = Color.fromRGBO(
         currentRgb[0], currentRgb[1], currentRgb[2], 1.0);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          modo == 'manual'
-              ? "Modo Manual (Toques: ${tiemposObtenidos.length})"
-              : "Ronda $rondaActual de $rondasTotal",
-        ),
+        title: Text(_getTituloAppBar()),
         centerTitle: true,
         automaticallyImplyLeading: false,
       ),
@@ -248,130 +311,139 @@ class _EntrenamientoActivoScreenState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (ledEncendido) ...[
+              if (modo == 'tiempo') ...[
                 Chip(
-                  avatar: const Icon(Icons.sensors, color: Colors.white, size: 18),
+                  avatar: const Icon(Icons.timer, color: Colors.white, size: 18),
                   label: Text(
-                    "POD ACTIVO: $podActivoActual",
+                    "TIEMPO RESTANTE: ${tiempoRestanteSeg}s",
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
-                  backgroundColor: Colors.blueAccent,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  backgroundColor:
+                      tiempoRestanteSeg <= 5 ? Colors.redAccent : Colors.orange,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 ),
                 const SizedBox(height: 16),
               ],
 
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: ledEncendido ? currentColor : Colors.grey.shade300,
-                  boxShadow: ledEncendido
-                      ? [
-                          BoxShadow(
-                            color: currentColor.withValues(alpha: 0.6),
-                            blurRadius: 20,
-                            spreadRadius: 5,
-                          )
-                        ]
-                      : [],
-                ),
-                child: Icon(
-                  ledEncendido ? Icons.lightbulb : Icons.lightbulb_outline,
-                  size: 60,
-                  color: ledEncendido ? Colors.white : Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                estadoTexto,
-                textAlign: TextAlign.center,
-                style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 24),
-
-              if (tiemposObtenidos.isNotEmpty) ...[
-                Card(
-                  elevation: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        Text(
-                          "Último tiempo: ${tiemposObtenidos.last.toStringAsFixed(3)} s",
-                          style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blueAccent),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "Total de toques: ${tiemposObtenidos.length}",
-                          style: TextStyle(
-                              fontSize: 14, color: Colors.grey.shade700),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-
+              // VISTA PARA MODO MANUAL (Cuadrados interactivos Pod 1 y Pod 2)
               if (modo == 'manual') ...[
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 52,
-                        child: ElevatedButton.icon(
-                          onPressed: ledEncendido ? null : _encenderLedManual,
-                          icon: const Icon(Icons.power_settings_new),
-                          label: const Text(
-                            "ENCENDER",
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
+                    _buildPodSquare(
+                      podIndex: 0,
+                      label: "1",
+                      isActive: ledEncendido && podActivoActual == 0,
+                      activeColor: currentColor,
+                      isDark: isDark,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SizedBox(
-                        height: 52,
-                        child: ElevatedButton.icon(
-                          onPressed: !ledEncendido ? null : _apagarLedManual,
-                          icon: const Icon(Icons.power_off),
-                          label: const Text(
-                            "APAGAR",
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.redAccent,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
+                    const SizedBox(width: 20),
+                    _buildPodSquare(
+                      podIndex: 1,
+                      label: "2",
+                      isActive: ledEncendido && podActivoActual == 1,
+                      activeColor: currentColor,
+                      isDark: isDark,
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+              ] else ...[
+                // VISTA PARA MODO RONDAS / TIEMPO (Luz circular central)
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: ledEncendido ? currentColor : Colors.grey.shade300,
+                    boxShadow: ledEncendido
+                        ? [
+                            BoxShadow(
+                              color: currentColor.withValues(alpha: 0.6),
+                              blurRadius: 20,
+                              spreadRadius: 5,
+                            )
+                          ]
+                        : [],
+                  ),
+                  child: Icon(
+                    ledEncendido ? Icons.lightbulb : Icons.lightbulb_outline,
+                    size: 60,
+                    color: ledEncendido ? Colors.white : Colors.grey.shade600,
+                  ),
+                ),
               ],
+
+              const SizedBox(height: 24),
+
+              // ÁREA DE TIEMPO / ESTADO
+              Text(
+                estadoTexto,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // REGISTRO Y MOSTRADOR DE TIEMPO OBTENIDO
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      "TIEMPO",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      tiemposObtenidos.isNotEmpty
+                          ? "${tiemposObtenidos.last.toStringAsFixed(3)} s"
+                          : "-- s",
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                    if (tiemposObtenidos.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        "Total toques: ${tiemposObtenidos.length}",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
 
               SizedBox(
                 width: double.infinity,
@@ -394,6 +466,81 @@ class _EntrenamientoActivoScreenState
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // WIDGET CUADRADO PARA SELECCIÓN DE POD EN MODO MANUAL
+  Widget _buildPodSquare({
+    required int podIndex,
+    required String label,
+    required bool isActive,
+    required Color activeColor,
+    required bool isDark,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _togglePodManual(podIndex),
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            color: isActive
+                ? activeColor
+                : (isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade100),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isActive
+                  ? activeColor
+                  : (isDark ? Colors.grey.shade700 : Colors.black),
+              width: 3,
+            ),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: activeColor.withValues(alpha: 0.6),
+                      blurRadius: 18,
+                      spreadRadius: 3,
+                    ),
+                  ]
+                : [
+                    const BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    )
+                  ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: isActive
+                      ? Colors.white
+                      : (isDark ? Colors.white : Colors.black),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                isActive ? "ENCENDIDO" : "POD ${podIndex + 1}",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isActive
+                      ? Colors.white.withValues(alpha: 0.9)
+                      : (isDark ? Colors.grey[400] : Colors.grey[700]),
                 ),
               ),
             ],

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -22,50 +23,89 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
   void initState() {
     super.initState();
 
-    _isScanningSubscription = FlutterBluePlus.isScanning.listen((scanning) {
-      if (mounted) {
-        setState(() {
-          isScanning = scanning;
-        });
-      }
-    });
+    // Escuchamos los resultados del escáner en ambas plataformas
+    _scanSubscription = FlutterBluePlus.scanResults.listen(
+      (results) {
+        if (mounted) {
+          setState(() {
+            scanResults = results;
+          });
+        }
+      },
+      onError: (e) => debugPrint("Error en stream scanResults: $e"),
+    );
 
-    _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
-      if (mounted) {
-        setState(() {
-          scanResults = results;
-        });
-      }
-    });
+    // En celulares (Android/iOS) escuchamos el estado nativo
+    if (!kIsWeb) {
+      _isScanningSubscription = FlutterBluePlus.isScanning.listen((scanning) {
+        if (mounted) {
+          setState(() {
+            isScanning = scanning;
+          });
+        }
+      });
 
-    _startScan();
+      _startScan();
+    }
   }
 
   Future<void> _startScan() async {
+    if (isScanning || isConnecting) return;
+
+    setState(() {
+      scanResults.clear();
+      isScanning = true;
+    });
+
     try {
-      if (FlutterBluePlus.isScanningNow) {
-        await FlutterBluePlus.stopScan();
-      }
-      if (mounted) {
-        setState(() {
-          scanResults.clear();
-        });
+      // Solo en móviles detenemos escaneos previos
+      if (!kIsWeb && FlutterBluePlus.isScanningNow) {
+        try {
+          await FlutterBluePlus.stopScan();
+        } catch (_) {}
       }
 
+      // Iniciar búsqueda
       await FlutterBluePlus.startScan(
         withServices: [Guid("4fa8691a-0393-40a3-974f-0759e09f114d")],
         timeout: const Duration(seconds: 8),
       );
+
+      if (mounted) {
+        setState(() {
+          scanResults = FlutterBluePlus.lastScanResults;
+        });
+      }
     } catch (e) {
-      debugPrint('Error en escaneo BLE: $e');
+      // Capturamos la cancelación de Chrome sin romper la ejecución
+      debugPrint('Escaneo finalizado o cancelado por el usuario: $e');
+    } finally {
+      // Apaga el indicador de carga SIEMPRE en la interfaz
+      if (mounted) {
+        setState(() {
+          isScanning = false;
+        });
+      }
     }
   }
 
   Future<void> _stopScan() async {
-    try {
-      await FlutterBluePlus.stopScan();
-    } catch (e) {
-      debugPrint('Error al detener escaneo BLE: $e');
+    // 1. Reseteamos el estado visual de la app inmediatamente
+    if (mounted) {
+      setState(() {
+        isScanning = false;
+      });
+    }
+
+    // 2. En Web NO llamamos a stopScan() para evitar el error "already stopped"
+    if (!kIsWeb) {
+      try {
+        if (FlutterBluePlus.isScanningNow) {
+          await FlutterBluePlus.stopScan();
+        }
+      } catch (e) {
+        debugPrint('Error en stopScan nativo: $e');
+      }
     }
   }
 
@@ -80,7 +120,8 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("¡Conectado exitosamente a ${device.platformName.isNotEmpty ? device.platformName : 'ESP32'}!"),
+            content: Text(
+                "¡Conectado exitosamente a ${device.platformName.isNotEmpty ? device.platformName : 'ESP32'}!"),
             backgroundColor: Colors.green,
           ),
         );
@@ -117,7 +158,13 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
   void dispose() {
     _isScanningSubscription?.cancel();
     _scanSubscription?.cancel();
-    FlutterBluePlus.stopScan();
+    if (!kIsWeb) {
+      try {
+        if (FlutterBluePlus.isScanningNow) {
+          FlutterBluePlus.stopScan();
+        }
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -137,7 +184,6 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Dispositivo actualmente conectado
               if (btState.conectado && btState.device != null) ...[
                 Card(
                   color: isDark ? const Color(0xFF1B3A2B) : const Color(0xFFE8F5E9),
@@ -190,7 +236,7 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
                         child: Text(
                           isScanning
                               ? 'Buscando pods cercanos...'
-                              : 'No se encontraron dispositivos.',
+                              : 'Presioná el botón de abajo para buscar pods.',
                           style: TextStyle(
                             color: isDark ? Colors.grey[400] : Colors.grey[600],
                           ),
@@ -238,7 +284,7 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
               SizedBox(
                 width: double.infinity,
                 height: 50,
-                child: ElevatedButton(
+                child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
                     foregroundColor: Colors.white,
@@ -247,9 +293,10 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
                       borderRadius: BorderRadius.circular(25),
                     ),
                   ),
+                  icon: Icon(isScanning ? Icons.close : Icons.search),
                   onPressed: isScanning ? _stopScan : _startScan,
-                  child: Text(
-                    isScanning ? 'CANCELAR BÚSQUEDA' : 'BUSCAR NUEVAMENTE',
+                  label: Text(
+                    isScanning ? 'CANCELAR BÚSQUEDA' : 'BUSCAR DISPOSITIVOS',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,

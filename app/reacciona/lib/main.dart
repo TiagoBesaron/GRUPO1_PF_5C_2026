@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -15,11 +16,13 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Persistencia offline
-  try {
-    FirebaseDatabase.instance.setPersistenceEnabled(true);
-  } catch (e) {
-    debugPrint('Nota sobre persistencia Firebase: $e');
+  // Persistencia offline: ACTIVA en celulares (Android/iOS), ignorada en Web
+  if (!kIsWeb) {
+    try {
+      FirebaseDatabase.instance.setPersistenceEnabled(true);
+    } catch (e) {
+      debugPrint('Nota sobre persistencia Firebase: $e');
+    }
   }
 
   runApp(const ProviderScope(child: ActiveloApp()));

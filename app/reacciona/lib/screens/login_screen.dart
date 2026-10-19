@@ -25,7 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _iniciarSesion() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_cargando || !_formKey.currentState!.validate()) return;
 
     setState(() => _cargando = true);
 
@@ -129,6 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next, // Al presionar Enter pasa a la contraseña
                     decoration: const InputDecoration(
                       labelText: "Correo Electrónico",
                       prefixIcon: Icon(Icons.email_outlined),
@@ -146,10 +147,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // CAMPO CONTRASEÑA CON OJITO
+                  // CAMPO CONTRASEÑA
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _ocultarPassword,
+                    textInputAction: TextInputAction.done, // Muestra botón 'Listo' o 'Enviar'
+                    onFieldSubmitted: (_) => _iniciarSesion(), // Al presionar Enter ejecuta el login
                     decoration: InputDecoration(
                       labelText: "Contraseña",
                       prefixIcon: const Icon(Icons.lock_outline),

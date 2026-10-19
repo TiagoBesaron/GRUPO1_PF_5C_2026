@@ -61,70 +61,75 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
-              InkWell(
-                onTap: () => context.push('/bluetooth'),
+              // Tarjeta Estado Bluetooth (Corregido con Material e InkWell)
+              Material(
+                color: cardColor,
                 borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => context.push('/bluetooth'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: btState.conectado ? Colors.green.shade50 : Colors.red.shade50,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          btState.conectado ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
-                          color: btState.conectado ? Colors.green : Colors.redAccent,
-                          size: 22,
-                        ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "Estado del dispositivo",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: btState.conectado ? Colors.green.shade50 : Colors.red.shade50,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            btState.conectado ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
+                            color: btState.conectado ? Colors.green : Colors.redAccent,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Estado del dispositivo",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              btState.conectado
-                                  ? "ESP32 Conectado (${btState.device?.platformName.isNotEmpty == true ? btState.device!.platformName : 'Pod BLE'})"
-                                  : "ESP32 desconectado",
-                              style: TextStyle(
-                                color: btState.conectado ? Colors.green : Colors.grey,
-                                fontSize: 13,
+                              const SizedBox(height: 2),
+                              Text(
+                                btState.conectado
+                                    ? "ESP32 Conectado (${btState.device?.platformName.isNotEmpty == true ? btState.device!.platformName : 'Pod BLE'})"
+                                    : "ESP32 desconectado",
+                                style: TextStyle(
+                                  color: btState.conectado ? Colors.green : Colors.grey,
+                                  fontSize: 13,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const Icon(
-                        Icons.bluetooth,
-                        size: 20,
-                      ),
-                    ],
+                        const Icon(
+                          Icons.bluetooth,
+                          size: 20,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
 
+              // Estadísticas de Firebase
               StreamBuilder<DatabaseEvent>(
                 stream: user != null
                     ? FirebaseDatabase.instance
@@ -418,6 +423,7 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+// Widget adaptado con Material para eliminar el error del ListTile
 class _QuickAccessItem extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -434,27 +440,31 @@ class _QuickAccessItem extends StatelessWidget {
     final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
-        ),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        leading: Icon(icon, color: Colors.blue),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+    return Material(
+      color: cardColor,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
           ),
         ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: Colors.grey,
+        child: ListTile(
+          onTap: onTap,
+          leading: Icon(icon, color: Colors.blue),
+          title: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          trailing: const Icon(
+            Icons.chevron_right,
+            color: Colors.grey,
+          ),
         ),
       ),
     );
