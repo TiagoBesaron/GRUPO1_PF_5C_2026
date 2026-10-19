@@ -20,40 +20,54 @@ class _ConfigEntrenamientoScreenState
   int _tiempoLimiteSeg = 30;
 
   String _colorSeleccionado = 'Verde';
-  String _colorSeleccionado2 = 'Rojo'; // Segundo color para Modo Bicolor
+  String _colorSeleccionado2 = 'Rojo';
 
   int _intensidad = 100; // Porcentaje de brillo (10% a 100%)
   double _tiempoEntrePodsSeg = 1.0; // Intervalo de pausa (0.2s a 5.0s)
+  double _tiempoDistractorSeg = 2.0; // Tiempo para ignorar Color 2 (1.0s a 5.0s)
 
   int _customR = 242;
   int _customG = 21;
   int _customB = 242;
 
   final List<String> _coloresDisponibles = [
-    'Verde',
     'Rojo',
-    'Azul',
+    'Naranja',
     'Amarillo',
+    'Verde',
+    'Azul',
+    'Celeste',
+    'Violeta',
     'Personalizado',
     'Aleatorio'
   ];
 
   final List<String> _coloresBicolor = [
-    'Verde',
     'Rojo',
-    'Azul',
+    'Naranja',
     'Amarillo',
+    'Verde',
+    'Azul',
+    'Celeste',
+    'Violeta',
   ];
 
   List<int> _colorNameToRGB(String color) {
     switch (color) {
       case 'Rojo':
         return [255, 0, 0];
-      case 'Azul':
-        return [0, 0, 255];
+      case 'Naranja':
+        return [255, 128, 0];
       case 'Amarillo':
         return [255, 255, 0];
       case 'Verde':
+        return [0, 255, 0];
+      case 'Azul':
+        return [0, 0, 255];
+      case 'Celeste':
+        return [0, 191, 255];
+      case 'Violeta':
+        return [128, 0, 128];
       default:
         return [0, 255, 0];
     }
@@ -70,12 +84,27 @@ class _ConfigEntrenamientoScreenState
           ),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 2),
           action: SnackBarAction(
             label: 'CONECTAR',
             textColor: Colors.white,
             onPressed: () => context.push('/bluetooth'),
           ),
+        ),
+      );
+      return;
+    }
+
+    if (_modo == ModoEntrenamiento.bicolor &&
+        _colorSeleccionado == _colorSeleccionado2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'En el Modo Bicolor debés seleccionar dos colores distintos.',
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
         ),
       );
       return;
@@ -104,6 +133,7 @@ class _ConfigEntrenamientoScreenState
       'rgbBase2': rgbBase2,
       'intensidad': _intensidad,
       'tiempoEntrePodsSeg': _tiempoEntrePodsSeg,
+      'tiempoDistractorSeg': _tiempoDistractorSeg,
     };
 
     context.push('/entrenamiento-activo', extra: config);
@@ -218,7 +248,7 @@ class _ConfigEntrenamientoScreenState
                     Divider(height: 1),
                     RadioListTile<ModoEntrenamiento>(
                       title: Text('Modo Bicolor'),
-                      subtitle: Text('Alterna aleatoriamente entre 2 colores'),
+                      subtitle: Text('Desactiva Color 1 e ignora Color 2'),
                       value: ModoEntrenamiento.bicolor,
                     ),
                     Divider(height: 1),
@@ -334,6 +364,76 @@ class _ConfigEntrenamientoScreenState
             ),
             const SizedBox(height: 24),
 
+            // SECCIÓN DE CONFIGURACIÓN BICOLOR (Tiempo de distractor)
+            if (_modo == ModoEntrenamiento.bicolor) ...[
+              const Text(
+                'Tiempo Límite Color 2 (Distractor)',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.block, color: Colors.redAccent),
+                              SizedBox(width: 8),
+                              Text(
+                                'Tiempo para ignorar:',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Chip(
+                            label: Text(
+                              '${_tiempoDistractorSeg.toStringAsFixed(1)}s',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SliderTheme(
+                        data: SliderThemeData(
+                          activeTrackColor: Colors.redAccent,
+                          thumbColor: Colors.redAccent,
+                          inactiveTrackColor: Colors.redAccent.withValues(alpha: 0.2),
+                        ),
+                        child: Slider(
+                          value: _tiempoDistractorSeg,
+                          min: 1.0,
+                          max: 5.0,
+                          divisions: 40,
+                          label: '${_tiempoDistractorSeg.toStringAsFixed(1)}s',
+                          onChanged: (val) {
+                            setState(() => _tiempoDistractorSeg = val);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
             // SECCIÓN DE INTERVALO / TIEMPO ENTRE PODS
             if (_modo != ModoEntrenamiento.manual) ...[
               const Text(
@@ -427,7 +527,7 @@ class _ConfigEntrenamientoScreenState
                           DropdownButtonFormField<String>(
                             initialValue: _colorSeleccionado,
                             decoration: const InputDecoration(
-                              labelText: 'Color 1',
+                              labelText: 'Color 1 (A tocar)',
                               border: OutlineInputBorder(),
                               prefixIcon: Icon(Icons.palette, color: Colors.blueAccent),
                             ),
@@ -445,9 +545,9 @@ class _ConfigEntrenamientoScreenState
                           DropdownButtonFormField<String>(
                             initialValue: _colorSeleccionado2,
                             decoration: const InputDecoration(
-                              labelText: 'Color 2',
+                              labelText: 'Color 2 (NO tocar / Ignorar)',
                               border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.palette_outlined, color: Colors.orangeAccent),
+                              prefixIcon: Icon(Icons.block, color: Colors.redAccent),
                             ),
                             items: _coloresBicolor.map((color) {
                               return DropdownMenuItem(

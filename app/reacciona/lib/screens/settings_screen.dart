@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../provider/theme_provider.dart';
+import '../provider/user_mode_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -14,13 +15,12 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _sonidoHabilitado = true;
   bool _vibracionHabilitada = true;
-  bool _reconexionAutomatica = true;
-  double _brilloLeds = 80;
 
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
     final isDarkMode = themeMode == ThemeMode.dark;
+    final esModoProfesional = ref.watch(modoProfesionalProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -32,6 +32,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Sección Modo de Uso
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+              child: Text(
+                'PERFIL Y MODO DE USO',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            Card(
+              child: SwitchListTile(
+                secondary: const Icon(Icons.medical_services_outlined, color: Colors.blue),
+                title: const Text('Modo Profesional / Kinesiología'),
+                subtitle: const Text(
+                  'Habilita la gestión de múltiples pacientes/atletas y notas clínicas.',
+                ),
+                value: esModoProfesional,
+                activeThumbColor: Colors.blue,
+                onChanged: (bool value) {
+                  ref.read(modoProfesionalProvider.notifier).toggleModo(value);
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+
             // Sección Apariencia
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
@@ -108,79 +137,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Sección Dispositivos y Pods
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
-              child: Text(
-                'CONFIGURACIÓN DE PODS',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-            Card(
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    secondary: const Icon(Icons.autorenew, color: Colors.blue),
-                    title: const Text('Reconexión Automática'),
-                    subtitle: const Text('Conectar automáticamente al pod conocido'),
-                    value: _reconexionAutomatica,
-                    activeThumbColor: Colors.blue,
-                    onChanged: (val) {
-                      setState(() => _reconexionAutomatica = val);
-                    },
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.lightbulb_outline, color: Colors.blue),
-                                SizedBox(width: 12),
-                                Text(
-                                  'Brillo Predeterminado LED',
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                              ],
-                            ),
-                            Text(
-                              '${_brilloLeds.round()}%',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Slider(
-                          value: _brilloLeds,
-                          min: 10,
-                          max: 100,
-                          divisions: 9,
-                          label: '${_brilloLeds.round()}%',
-                          activeColor: Colors.blue,
-                          onChanged: (val) {
-                            setState(() => _brilloLeds = val);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
             // Sección Cuenta y Perfil
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
@@ -243,11 +199,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     leading: const Icon(Icons.privacy_tip_outlined, color: Colors.blue),
                     title: const Text('Términos y Privacidad'),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Activelo - Sistema de entrenamiento táctil y cognitivo.')),
-                      );
-                    },
+                    onTap: () => context.push('/terminos-privacidad'),
                   ),
                 ],
               ),

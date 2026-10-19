@@ -11,15 +11,35 @@ class TerminosPrivacidadScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Legales y Privacidad'),
+          title: const Text(
+            'Legales y Privacidad',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
           centerTitle: true,
+          backgroundColor: Colors.blueAccent,
+          iconTheme: const IconThemeData(color: Colors.white),
           bottom: const TabBar(
-            indicatorColor: Colors.blueAccent,
-            labelColor: Colors.blueAccent,
-            unselectedLabelColor: Colors.grey,
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            labelStyle: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
+            unselectedLabelStyle: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.normal,
+            ),
             tabs: [
-              Tab(text: 'Términos de Uso', icon: Icon(Icons.description_outlined)),
-              Tab(text: 'Privacidad', icon: Icon(Icons.security_outlined)),
+              Tab(
+                text: 'Términos de Uso',
+                icon: Icon(Icons.description_outlined),
+              ),
+              Tab(
+                text: 'Privacidad',
+                icon: Icon(Icons.security_outlined),
+              ),
             ],
           ),
         ),
@@ -124,7 +144,7 @@ class _PoliticaPrivacidadContent extends StatelessWidget {
         Divider(height: 24),
         _TituloSeccion('1. Información Recopilada'),
         _TextoParrafo(
-          'Unicamente recopilamos los datos esenciales para prestar el servicio:\n'
+          'Únicamente recopilamos los datos esenciales para prestar el servicio:\n'
           '• Datos de identificación: Correo electrónico de registro.\n'
           '• Métricas de entrenamiento: Tiempos de reacción, cantidad de toques, modos utilizados y fechas de cada sesión.',
         ),

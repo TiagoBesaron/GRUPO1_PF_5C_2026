@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
-class TiemposScreen extends StatelessWidget {
+class TiemposScreen extends StatefulWidget {
   const TiemposScreen({super.key});
 
+  @override
+  State<TiemposScreen> createState() => _TiemposScreenState();
+}
+
+class _TiemposScreenState extends State<TiemposScreen> {
   String _formatDate(dynamic timestamp) {
     if (timestamp == null) return "--/--/----";
     int ms = timestamp is int ? timestamp : (int.tryParse(timestamp.toString()) ?? 0);
@@ -26,6 +31,8 @@ class TiemposScreen extends StatelessWidget {
         return 'Por Rondas';
       case 'tiempo':
         return 'Por Tiempo';
+      case 'bicolor':
+        return 'Modo Bicolor';
       case 'manual':
         return 'Modo Manual';
       default:
@@ -39,11 +46,50 @@ class TiemposScreen extends StatelessWidget {
         return Colors.blue;
       case 'tiempo':
         return Colors.orange;
+      case 'bicolor':
+        return Colors.teal;
       case 'manual':
         return Colors.purple;
       default:
         return Colors.grey;
     }
+  }
+
+  void _editarNotasSesion(String sesionId, String notasActuales) {
+    final controller = TextEditingController(text: notasActuales);
+    final user = FirebaseAuth.instance.currentUser;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Anotaciones de la Sesión'),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Observaciones / Diagnóstico',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCELAR'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (user != null) {
+                await FirebaseDatabase.instance
+                    .ref('usuarios/${user.uid}/sesiones/$sesionId')
+                    .update({'notas_sesion': controller.text.trim()});
+              }
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('GUARDAR'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -113,22 +159,18 @@ class TiemposScreen extends StatelessWidget {
                         'modo': value['modo'] ?? 'rondas',
                         'promedio_seg': (value['promedio_seg'] as num?)?.toDouble() ?? 0.0,
                         'tiempos': listaTiempos,
+                        'errores': (value['errores'] as num?)?.toInt() ?? 0,
+                        'perfil_nombre': value['perfil_nombre'] ?? '',
+                        'notas_sesion': value['notas_sesion'] ?? '', // <--- LECTURA
                         'timestamp': value['timestamp'] ?? 0,
                       });
                     }
                   });
 
-                  // Ordenar de más reciente a más antigua
                   sesiones.sort((a, b) => (b['timestamp'] as num)
                       .compareTo(a['timestamp'] as num));
                 } catch (e) {
                   debugPrint("Error al procesar el historial: $e");
-                }
-
-                if (sesiones.isEmpty) {
-                  return const Center(
-                    child: Text("No se encontraron registros válidos."),
-                  );
                 }
 
                 return ListView.builder(
@@ -139,6 +181,9 @@ class TiemposScreen extends StatelessWidget {
                     final List<double> tiempos = sesion['tiempos'];
                     final String modoStr = sesion['modo'];
                     final double promedio = sesion['promedio_seg'];
+                    final int errores = sesion['errores'];
+                    final String atletaNombre = sesion['perfil_nombre'];
+                    final String notas = sesion['notas_sesion'];
 
                     double? mejorTiempo = tiempos.isNotEmpty
                         ? tiempos.reduce((a, b) => a < b ? a : b)
@@ -198,23 +243,39 @@ class TiemposScreen extends StatelessWidget {
                         ),
                         subtitle: Padding(
                           padding: const EdgeInsets.only(top: 6.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                _formatDate(sesion['timestamp']),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
+                              if (atletaNombre.isNotEmpty && atletaNombre != "Uso Personal") ...[
+                                Text(
+                                  "Atleta: $atletaNombre",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.blue.shade200 : Colors.blue.shade800,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                "Prom: ${promedio.toStringAsFixed(3)}s",
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.blueAccent,
-                                ),
+                                const SizedBox(height: 2),
+                              ],
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _formatDate(sesion['timestamp']),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  Text(
+                                    "Prom: ${promedio.toStringAsFixed(3)}s",
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.blueAccent,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -228,7 +289,6 @@ class TiemposScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Resumen rápido de la sesión
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceAround,
@@ -246,18 +306,51 @@ class TiemposScreen extends StatelessWidget {
                                       color: Colors.blueAccent,
                                     ),
                                     _buildMiniStat(
-                                      label: "Total Toques",
-                                      value: "${tiempos.length}",
-                                      color: Colors.orange,
+                                      label: "Errores",
+                                      value: "$errores",
+                                      color: errores > 0 ? Colors.redAccent : Colors.grey,
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 16),
                                 const Divider(),
+
+                                // SECCIÓN DE ANOTACIONES
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      "Anotaciones de la sesión:",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_note, color: Colors.blueAccent),
+                                      onPressed: () => _editarNotasSesion(
+                                        sesion['id'],
+                                        notas,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  notas.isNotEmpty
+                                      ? notas
+                                      : "Sin anotaciones ingresadas.",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontStyle: notas.isEmpty ? FontStyle.italic : FontStyle.normal,
+                                    color: notas.isEmpty ? Colors.grey : null,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                const Divider(),
                                 const SizedBox(height: 8),
 
                                 const Text(
-                                  "Desglose por toque:",
+                                  "Desglose por toque válido:",
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
@@ -265,7 +358,6 @@ class TiemposScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 10),
 
-                                // Grilla de tiempos desglosados
                                 Wrap(
                                   spacing: 8,
                                   runSpacing: 8,
