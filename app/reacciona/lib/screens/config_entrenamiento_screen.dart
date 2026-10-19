@@ -19,6 +19,7 @@ class _ConfigEntrenamientoScreenState
   int _rondas = 10;
   int _tiempoLimiteSeg = 30;
   String _colorSeleccionado = 'Verde';
+  int _intensidad = 100; // Porcentaje de brillo (10% a 100%)
 
   int _customR = 242;
   int _customG = 21;
@@ -85,6 +86,7 @@ class _ConfigEntrenamientoScreenState
       'tiempoLimiteSeg': _tiempoLimiteSeg,
       'colorAleatorio': _colorSeleccionado == 'Aleatorio',
       'rgbBase': rgbBase,
+      'intensidad': _intensidad, // Pasamos el porcentaje de brillo
     };
 
     context.push('/entrenamiento-activo', extra: config);
@@ -294,7 +296,7 @@ class _ConfigEntrenamientoScreenState
                           SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'En el Modo Manual podés encender y apagar el pod en cualquier momento con los botones de la pantalla.',
+                              'En el Modo Manual podés encender y apagar el pod en cualquier momento tocando sus casillas.',
                               style: TextStyle(fontSize: 15),
                             ),
                           ),
@@ -306,6 +308,8 @@ class _ConfigEntrenamientoScreenState
               ),
             ),
             const SizedBox(height: 24),
+
+            // SECCIÓN DE COLOR
             const Text(
               'Color de los LEDs',
               style: TextStyle(
@@ -402,7 +406,77 @@ class _ConfigEntrenamientoScreenState
                 ),
               ),
             ),
+            const SizedBox(height: 24),
+
+            // SECCIÓN DE INTENSIDAD / BRILLO
+            const Text(
+              'Intensidad de los LEDs',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.brightness_6, color: Colors.orangeAccent),
+                            SizedBox(width: 8),
+                            Text(
+                              'Brillo / Intensidad:',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Chip(
+                          label: Text(
+                            '$_intensidad%',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orangeAccent,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SliderTheme(
+                      data: SliderThemeData(
+                        activeTrackColor: Colors.orangeAccent,
+                        thumbColor: Colors.orangeAccent,
+                        inactiveTrackColor: Colors.orangeAccent.withValues(alpha: 0.2),
+                      ),
+                      child: Slider(
+                        value: _intensidad.toDouble(),
+                        min: 10,
+                        max: 100,
+                        divisions: 18, // Pasos de 5%
+                        label: '$_intensidad%',
+                        onChanged: (val) {
+                          setState(() => _intensidad = val.round());
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 32),
+
+            // BOTÓN INICIAR
             SizedBox(
               width: double.infinity,
               height: 54,

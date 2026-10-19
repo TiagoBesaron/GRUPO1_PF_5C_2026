@@ -17,9 +17,8 @@
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
-// REEMPLAZAR CON LA MAC REAL DEL POD 1 OBTENIDA EN EL PASO 1
+// REEMPLAZAR CON LA MAC REAL DEL POD 1
 uint8_t macPod1[] = { 0x44, 0xBD, 0x8D, 0x5E, 0x0B, 0xBC };
-
 
 typedef struct struct_message {
   uint8_t podId;
@@ -56,6 +55,15 @@ void encenderLEDsLocales(uint8_t r, uint8_t g, uint8_t b) {
 
 void solicitarEncendidoLocal(uint8_t r, uint8_t g, uint8_t b) {
   if (!appConectada) return;
+
+  // Si se solicita apagar (RGB = 0,0,0)
+  if (r == 0 && g == 0 && b == 0) {
+    esperandoSensorLocal = false;
+    comandoPendienteLocal = false;
+    apagarLEDsLocales();
+    return;
+  }
+
   if (digitalRead(PIN_RCWL) == HIGH) {
     pendingR = r;
     pendingG = g;
@@ -79,7 +87,7 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
     pTxCharacteristic->notify();
     Serial.print("[CENTRAL] Reacción recibida de Pod ");
     Serial.print(datosRecepcion.podId);
-    Serial.println(" retransmitida a la App.");
+    Serial.println(" retransmitted a la App.");
   }
 }
 
@@ -90,6 +98,7 @@ class ServerCallbacks : public BLEServerCallbacks {
   void onDisconnect(BLEServer *pServer) {
     appConectada = false;
     esperandoSensorLocal = false;
+    comandoPendienteLocal = false;
     apagarLEDsLocales();
     pServer->getAdvertising()->start();
   }
@@ -100,7 +109,7 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
     if (!appConectada) return;
     String rxValue = pCharacteristic->getValue().c_str();
 
-    // Formato comando: EMPEZAR:POD_ID,R,G,B (ejemplo EMPEZAR:0,255,0,0 o EMPEZAR:1,0,255,0)
+    // Formato comando: EMPEZAR:POD_ID,R,G,B
     if (rxValue.startsWith("EMPEZAR:")) {
       String parametros = rxValue.substring(8);
       int c1 = parametros.indexOf(',');
@@ -114,10 +123,8 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
         int b = parametros.substring(c3 + 1).toInt();
 
         if (podTarget == 0) {
-          // Activar LEDs en el propio Central (Pod 0)
           solicitarEncendidoLocal((uint8_t)r, (uint8_t)g, (uint8_t)b);
         } else if (podTarget == 1) {
-          // Enviar orden por ESP-NOW a Pod 1
           datosEnvio.podId = 1;
           datosEnvio.r = r;
           datosEnvio.g = g;
@@ -133,11 +140,10 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
 void setup() {
   Serial.begin(115200);
   strip.begin();
-  strip.setBrightness(128);
+  strip.setBrightness(255); // Brillo máximo de hardware para recibir RGB directamente desde Flutter
   apagarLEDsLocales();
   pinMode(PIN_RCWL, INPUT);
 
-  // Inicializar WiFi en modo dual STA para ESP-NOW
   WiFi.mode(WIFI_STA);
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
 
@@ -147,14 +153,12 @@ void setup() {
   }
   esp_now_register_recv_cb(OnDataRecv);
 
-  // Registrar Pod 1 como Peer ESP-NOW
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, macPod1, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
   esp_now_add_peer(&peerInfo);
 
-  // Inicialización BLE
   BLEDevice::init("ACTIVELO_CENTRAL");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new ServerCallbacks());

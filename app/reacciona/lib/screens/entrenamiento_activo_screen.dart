@@ -81,11 +81,23 @@ class _EntrenamientoActivoScreenState
     });
   }
 
+  // Obtiene el color base y aplica el % de intensidad seleccionado
   List<int> obtenerRGBRonda() {
+    double factorIntensidad =
+        ((widget.config['intensidad'] ?? 100) as num) / 100.0;
+    List<int> rawRgb;
+
     if (widget.config['colorAleatorio'] == true) {
-      return listaRGB[Random().nextInt(listaRGB.length)];
+      rawRgb = listaRGB[Random().nextInt(listaRGB.length)];
+    } else {
+      rawRgb = List<int>.from(widget.config['rgbBase'] ?? [0, 255, 0]);
     }
-    return List<int>.from(widget.config['rgbBase'] ?? [0, 255, 0]);
+
+    return [
+      (rawRgb[0] * factorIntensidad).round(),
+      (rawRgb[1] * factorIntensidad).round(),
+      (rawRgb[2] * factorIntensidad).round(),
+    ];
   }
 
   Future<void> iniciarSiguienteRonda() async {
@@ -294,7 +306,7 @@ class _EntrenamientoActivoScreenState
       }
     });
 
-    List<int> currentRgb = widget.config['rgbBase'] ?? [0, 255, 0];
+    List<int> currentRgb = obtenerRGBRonda();
     Color currentColor = Color.fromRGBO(
         currentRgb[0], currentRgb[1], currentRgb[2], 1.0);
     final isDark = Theme.of(context).brightness == Brightness.dark;

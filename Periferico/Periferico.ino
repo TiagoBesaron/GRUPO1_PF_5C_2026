@@ -7,11 +7,10 @@
 #define NUM_PIXELS     24
 #define PIN_RCWL       2
 
-#define POD_ID 1 // Identificador de este pod
+#define POD_ID 1 // Identificador del Pod Periférico
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
-// Estructura de mensaje compatible con Central
 typedef struct struct_message {
   uint8_t podId;
   uint8_t r;
@@ -24,7 +23,7 @@ typedef struct struct_message {
 struct_message datosEntrada;
 struct_message datosSalida;
 
-uint8_t macCentral[6]; // Se guarda automáticamente al recibir la orden
+uint8_t macCentral[6];
 bool esperandoSensor = false;
 bool comandoPendiente = false;
 uint8_t pendingR = 0, pendingG = 0, pendingB = 0;
@@ -43,8 +42,18 @@ void encenderLEDs(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void solicitarEncendido(uint8_t r, uint8_t g, uint8_t b) {
+  // Manejo de orden de apagar (RGB = 0,0,0)
+  if (r == 0 && g == 0 && b == 0) {
+    esperandoSensor = false;
+    comandoPendiente = false;
+    apagarLEDs();
+    return;
+  }
+
   if (digitalRead(PIN_RCWL) == HIGH) {
-    pendingR = r; pendingG = g; pendingB = b;
+    pendingR = r; 
+    pendingG = g; 
+    pendingB = b;
     comandoPendiente = true;
   } else {
     comandoPendiente = false;
@@ -54,14 +63,10 @@ void solicitarEncendido(uint8_t r, uint8_t g, uint8_t b) {
   }
 }
 
-// Callback al recibir orden por ESP-NOW desde el Central
 void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
   memcpy(&datosEntrada, incomingData, sizeof(datosEntrada));
-  
-  // Guardar la MAC del Central para responderle después
   memcpy(macCentral, recv_info->src_addr, 6);
 
-  // Procesar solo si la orden es para este Pod
   if (datosEntrada.podId == POD_ID && !datosEntrada.esReaccion) {
     solicitarEncendido(datosEntrada.r, datosEntrada.g, datosEntrada.b);
   }
@@ -70,7 +75,7 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
 void setup() {
   Serial.begin(115200);
   strip.begin();
-  strip.setBrightness(128);
+  strip.setBrightness(255); // Brillo máximo de hardware
   apagarLEDs();
 
   pinMode(PIN_RCWL, INPUT);
@@ -88,18 +93,16 @@ void setup() {
 }
 
 void loop() {
-  // 1. Detección de toque
+  // Detección de toque / reacción
   if (esperandoSensor && digitalRead(PIN_RCWL) == HIGH) {
     unsigned long reactionTime = millis() - startTime;
     esperandoSensor = false;
     apagarLEDs();
 
-    // Enviar tiempo de reacción al Central por ESP-NOW
     datosSalida.podId = POD_ID;
     datosSalida.reactionTime = reactionTime;
     datosSalida.esReaccion = true;
 
-    // Registrar Central como peer si no está agregado
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, macCentral, 6);
     peerInfo.channel = 0;
@@ -114,7 +117,7 @@ void loop() {
     Serial.println(reactionTime);
   }
 
-  // 2. Desbloqueo de nueva ronda
+  // Desbloqueo si la mano estaba encima cuando llegó la orden
   if (comandoPendiente && digitalRead(PIN_RCWL) == LOW) {
     comandoPendiente = false;
     encenderLEDs(pendingR, pendingG, pendingB);
