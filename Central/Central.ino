@@ -17,7 +17,7 @@
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
-// MAC REAL del Pod Periférico (Pod 1)
+// MAC REAL de Wi-Fi STA del Pod Periférico (Pod 1)
 uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x87, 0x0F, 0xA4 };
 
 typedef struct struct_message {
@@ -56,7 +56,6 @@ void encenderLEDsLocales(uint8_t r, uint8_t g, uint8_t b) {
 void solicitarEncendidoLocal(uint8_t r, uint8_t g, uint8_t b) {
   if (!appConectada) return;
 
-  // Si se solicita apagar (RGB = 0,0,0)
   if (r == 0 && g == 0 && b == 0) {
     esperandoSensorLocal = false;
     comandoPendienteLocal = false;
@@ -77,7 +76,7 @@ void solicitarEncendidoLocal(uint8_t r, uint8_t g, uint8_t b) {
   }
 }
 
-// Callback de confirmación de envío por ESP-NOW (Firma adaptada a ESP32 Core v3.x)
+// Callback de confirmación de envío por ESP-NOW (ESP32 Core v3.x)
 void OnDataSent(const wifi_tx_info_t *tx_info, esp_now_send_status_t status) {
   Serial.print("[CENTRAL] Estado envio a Pod 1: ");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "ENTREGADO EXITOSO ✅" : "FALLÓ (Periferico no responde) ❌");
@@ -117,7 +116,6 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
     if (!appConectada) return;
     String rxValue = pCharacteristic->getValue().c_str();
 
-    // Formato comando: EMPEZAR:POD_ID,R,G,B
     if (rxValue.startsWith("EMPEZAR:")) {
       String parametros = rxValue.substring(8);
       int c1 = parametros.indexOf(',');
@@ -152,7 +150,9 @@ void setup() {
   apagarLEDsLocales();
   pinMode(PIN_RCWL, INPUT);
 
+  // Configuración Wi-Fi sin ahorro de energía y en Canal 1 fijo
   WiFi.mode(WIFI_STA);
+  esp_wifi_set_ps(WIFI_PS_NONE);
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
 
   if (esp_now_init() != ESP_OK) {
@@ -162,9 +162,10 @@ void setup() {
   esp_now_register_send_cb(OnDataSent);
   esp_now_register_recv_cb(OnDataRecv);
 
+  // Registrar Peer (Pod 1) obligatoriamente en Canal 1
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, macPod1, 6);
-  peerInfo.channel = 0;
+  peerInfo.channel = 1;
   peerInfo.encrypt = false;
   esp_now_add_peer(&peerInfo);
 
@@ -186,7 +187,7 @@ void setup() {
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->start();
 
-  Serial.println("[CENTRAL] Puente BLE / ESP-NOW iniciado.");
+  Serial.println("[CENTRAL] Puente BLE / ESP-NOW iniciado en Canal 1 (Power Save OFF).");
 }
 
 void loop() {
@@ -208,7 +209,6 @@ void loop() {
     }
   }
 
-  // Desbloqueo si la mano estaba encima cuando llegó la orden
   if (comandoPendienteLocal && digitalRead(PIN_RCWL) == LOW) {
     comandoPendienteLocal = false;
     encenderLEDsLocales(pendingR, pendingG, pendingB);

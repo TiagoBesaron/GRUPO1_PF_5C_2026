@@ -6,8 +6,7 @@
 #define PIN_NEOPIXEL   7
 #define NUM_PIXELS     24
 #define PIN_RCWL       2
-
-#define POD_ID 1 // Identificador del Pod Periférico
+#define POD_ID         1
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
@@ -23,7 +22,7 @@ typedef struct struct_message {
 struct_message datosEntrada;
 struct_message datosSalida;
 
-uint8_t macCentral[ 0x3C, 0x0F, 0x02, 0x84, 0x2A, 0x64 ];
+uint8_t macCentral[6] = {0};
 bool esperandoSensor = false;
 bool comandoPendiente = false;
 uint8_t pendingR = 0, pendingG = 0, pendingB = 0;
@@ -42,7 +41,6 @@ void encenderLEDs(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void solicitarEncendido(uint8_t r, uint8_t g, uint8_t b) {
-  // Manejo de orden de apagar (RGB = 0,0,0)
   if (r == 0 && g == 0 && b == 0) {
     esperandoSensor = false;
     comandoPendiente = false;
@@ -64,6 +62,7 @@ void solicitarEncendido(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
+  Serial.println("[PERIFERICO] ¡PAQUETE RECIBIDO POR ESP-NOW! 🎉");
   memcpy(&datosEntrada, incomingData, sizeof(datosEntrada));
   memcpy(macCentral, recv_info->src_addr, 6);
 
@@ -75,25 +74,31 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
 void setup() {
   Serial.begin(115200);
   strip.begin();
-  strip.setBrightness(255); // Brillo máximo de hardware
+  strip.setBrightness(255);
   apagarLEDs();
 
   pinMode(PIN_RCWL, INPUT);
 
+  // Configuración Wi-Fi sin ahorro de energía y en Canal 1 fijo
   WiFi.mode(WIFI_STA);
+  esp_wifi_set_ps(WIFI_PS_NONE);
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
 
+  Serial.println("\n==========================================");
+  Serial.print(">>> MAC REAL DE WI-FI STA DEL PERIFERICO: ");
+  Serial.println(WiFi.macAddress());
+  Serial.println("==========================================");
+
   if (esp_now_init() != ESP_OK) {
-    Serial.println("Error al inicializar ESP-NOW en Pod 1");
+    Serial.println("Error al inicializar ESP-NOW en Periférico");
     return;
   }
 
   esp_now_register_recv_cb(OnDataRecv);
-  Serial.println("[POD 1] Listo esperando órdenes ESP-NOW...");
+  Serial.println("[PERIFERICO] Listo esperando órdenes en Canal 1 (Power Save OFF)...");
 }
 
 void loop() {
-  // Detección de toque / reacción
   if (esperandoSensor && digitalRead(PIN_RCWL) == HIGH) {
     unsigned long reactionTime = millis() - startTime;
     esperandoSensor = false;
@@ -105,7 +110,7 @@ void loop() {
 
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, macCentral, 6);
-    peerInfo.channel = 0;
+    peerInfo.channel = 1;
     peerInfo.encrypt = false;
     
     if (!esp_now_is_peer_exist(macCentral)) {
@@ -113,11 +118,10 @@ void loop() {
     }
 
     esp_now_send(macCentral, (uint8_t *) &datosSalida, sizeof(datosSalida));
-    Serial.print("[POD 1] Reacción enviada al Central: ");
+    Serial.print("[PERIFERICO] Reacción enviada a la Central: ");
     Serial.println(reactionTime);
   }
 
-  // Desbloqueo si la mano estaba encima cuando llegó la orden
   if (comandoPendiente && digitalRead(PIN_RCWL) == LOW) {
     comandoPendiente = false;
     encenderLEDs(pendingR, pendingG, pendingB);
