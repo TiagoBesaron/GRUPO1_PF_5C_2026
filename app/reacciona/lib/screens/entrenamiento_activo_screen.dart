@@ -315,7 +315,6 @@ class _EntrenamientoActivoScreenState
 
     if (!mounted) return;
 
-    // Diálogo final con campo de anotaciones
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -328,7 +327,7 @@ class _EntrenamientoActivoScreenState
             children: [
               if (esModoProfesional) ...[
                 Text(
-                  "Atleta/Paciente: ${perfilActivo?.nombre ?? 'Perfil Principal'}",
+                  "Usuario: ${perfilActivo?.nombre ?? 'Perfil Principal'}",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
@@ -343,7 +342,7 @@ class _EntrenamientoActivoScreenState
                 maxLines: 2,
                 decoration: const InputDecoration(
                   labelText: 'Anotaciones de la sesión (Opcional)',
-                  hintText: 'Ej: Molestia física, buena evolución, etc.',
+                  hintText: 'Ej: Buena evolución, fatiga muscular, etc.',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.note_add_outlined),
                 ),
@@ -370,7 +369,7 @@ class _EntrenamientoActivoScreenState
                   "perfil_nombre": esModoProfesional
                       ? (perfilActivo?.nombre ?? "Perfil Principal")
                       : "Uso Personal",
-                  "notas_sesion": notasController.text.trim(), // <--- GUARDAR NOTAS
+                  "notas_sesion": notasController.text.trim(),
                   "timestamp": ServerValue.timestamp,
                 });
               }

@@ -1,22 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class PerfilAtleta {
+class PerfilUsuario {
   final String id;
   final String nombre;
   final String notas;
 
-  PerfilAtleta({
+  PerfilUsuario({
     required this.id,
     required this.nombre,
     this.notas = '',
   });
 }
 
-class PerfilNotifier extends StateNotifier<PerfilAtleta?> {
+class PerfilNotifier extends StateNotifier<PerfilUsuario?> {
   PerfilNotifier() : super(null);
 
   void seleccionarPerfil(String id, String nombre, {String notas = ''}) {
-    state = PerfilAtleta(id: id, nombre: nombre, notas: notas);
+    state = PerfilUsuario(id: id, nombre: nombre, notas: notas);
   }
 
   void deseleccionar() {
@@ -25,6 +25,6 @@ class PerfilNotifier extends StateNotifier<PerfilAtleta?> {
 }
 
 final perfilActivoProvider =
-    StateNotifierProvider<PerfilNotifier, PerfilAtleta?>((ref) {
+    StateNotifierProvider<PerfilNotifier, PerfilUsuario?>((ref) {
   return PerfilNotifier();
 });

@@ -65,7 +65,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
 
-              // TARJETA DE PACIENTE / ATLETA SELECCIONADO (SOLO EN MODO PROFESIONAL)
+              // TARJETA DE USUARIO SELECCIONADO (SOLO EN MODO PROFESIONAL)
               if (esModoProfesional) ...[
                 Material(
                   color: isDark ? const Color(0xFF1E293B) : Colors.blue.shade50,
@@ -90,7 +90,7 @@ class HomeScreen extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  "Atleta / Paciente Activo:",
+                                  "Usuario Activo:",
                                   style: TextStyle(fontSize: 12, color: Colors.grey),
                                 ),
                                 Text(
@@ -399,7 +399,7 @@ class HomeScreen extends ConsumerWidget {
               if (esModoProfesional) ...[
                 _QuickAccessItem(
                   icon: Icons.people_outline,
-                  title: "Gestionar Pacientes y Atletas",
+                  title: "Gestionar Usuarios",
                   onTap: () => context.push('/gestionar-perfiles'),
                 ),
                 const SizedBox(height: 8),

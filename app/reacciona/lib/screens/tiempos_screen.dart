@@ -67,7 +67,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
           controller: controller,
           maxLines: 3,
           decoration: const InputDecoration(
-            labelText: 'Observaciones / Diagnóstico',
+            labelText: 'Observaciones de la sesión',
             border: OutlineInputBorder(),
           ),
         ),
@@ -161,7 +161,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
                         'tiempos': listaTiempos,
                         'errores': (value['errores'] as num?)?.toInt() ?? 0,
                         'perfil_nombre': value['perfil_nombre'] ?? '',
-                        'notas_sesion': value['notas_sesion'] ?? '', // <--- LECTURA
+                        'notas_sesion': value['notas_sesion'] ?? '',
                         'timestamp': value['timestamp'] ?? 0,
                       });
                     }
@@ -182,7 +182,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
                     final String modoStr = sesion['modo'];
                     final double promedio = sesion['promedio_seg'];
                     final int errores = sesion['errores'];
-                    final String atletaNombre = sesion['perfil_nombre'];
+                    final String usuarioNombre = sesion['perfil_nombre'];
                     final String notas = sesion['notas_sesion'];
 
                     double? mejorTiempo = tiempos.isNotEmpty
@@ -246,9 +246,9 @@ class _TiemposScreenState extends State<TiemposScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (atletaNombre.isNotEmpty && atletaNombre != "Uso Personal") ...[
+                              if (usuarioNombre.isNotEmpty && usuarioNombre != "Uso Personal") ...[
                                 Text(
-                                  "Atleta: $atletaNombre",
+                                  "Usuario: $usuarioNombre",
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,

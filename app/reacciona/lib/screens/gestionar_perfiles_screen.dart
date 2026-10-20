@@ -22,7 +22,7 @@ class _GestionarPerfilesScreenState
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(id == null ? 'Nuevo Paciente / Atleta' : 'Editar Paciente'),
+        title: Text(id == null ? 'Nuevo Usuario' : 'Editar Usuario'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -38,7 +38,7 @@ class _GestionarPerfilesScreenState
             TextField(
               controller: notasController,
               decoration: const InputDecoration(
-                labelText: 'Notas / Diagnóstico (Ej: Lesión rodilla)',
+                labelText: 'Notas / Observaciones',
                 prefixIcon: Icon(Icons.notes),
                 border: OutlineInputBorder(),
               ),
@@ -89,7 +89,7 @@ class _GestionarPerfilesScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pacientes y Atletas'),
+        title: const Text('Gestión de Usuarios'),
         centerTitle: true,
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -137,7 +137,7 @@ class _GestionarPerfilesScreenState
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Seleccioná el paciente que entrenará en esta sesión.',
+                              'Seleccioná el usuario que entrenará en esta sesión.',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: isDark ? Colors.grey.shade300 : Colors.grey.shade800,
@@ -158,7 +158,7 @@ class _GestionarPerfilesScreenState
                         'Perfil Principal (Propietario)',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: const Text('Sin atleta asignado explícitamente'),
+                      subtitle: const Text('Sin usuario asignado explícitamente'),
                       trailing: perfilActivo == null
                           ? const Icon(Icons.check_circle, color: Colors.green)
                           : null,
@@ -172,7 +172,7 @@ class _GestionarPerfilesScreenState
                       child: perfiles.isEmpty
                           ? const Center(
                               child: Text(
-                                'Aún no cargaste atletas ni pacientes.\nTocá en "Agregar" para crear uno.',
+                                'Aún no cargaste usuarios.\nTocá en "Agregar" para crear uno.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(color: Colors.grey),
                               ),

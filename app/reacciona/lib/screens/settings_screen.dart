@@ -47,10 +47,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             Card(
               child: SwitchListTile(
-                secondary: const Icon(Icons.medical_services_outlined, color: Colors.blue),
-                title: const Text('Modo Profesional / Kinesiología'),
+                secondary: const Icon(Icons.badge_outlined, color: Colors.blue),
+                title: const Text('Modo Profesional'),
                 subtitle: const Text(
-                  'Habilita la gestión de múltiples pacientes/atletas y notas clínicas.',
+                  'Habilita la gestión de múltiples usuarios y notas de sesión.',
                 ),
                 value: esModoProfesional,
                 activeThumbColor: Colors.blue,
