@@ -10,7 +10,7 @@
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
-typedef struct struct_message {
+typedef struct __attribute__((packed)) {
   uint8_t podId;
   uint8_t r;
   uint8_t g;
@@ -62,11 +62,14 @@ void solicitarEncendido(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
-  Serial.println("[PERIFERICO] ¡PAQUETE RECIBIDO POR ESP-NOW! 🎉");
+  Serial.print("[PERIFERICO] ¡PAQUETE RECIBIDO POR EL AIRE! Tamaño: ");
+  Serial.println(len);
+
   memcpy(&datosEntrada, incomingData, sizeof(datosEntrada));
   memcpy(macCentral, recv_info->src_addr, 6);
 
   if (datosEntrada.podId == POD_ID && !datosEntrada.esReaccion) {
+    Serial.println("[PERIFERICO] ¡Comando asignado a mi POD_ID! Encendiendo LEDs...");
     solicitarEncendido(datosEntrada.r, datosEntrada.g, datosEntrada.b);
   }
 }
@@ -79,15 +82,11 @@ void setup() {
 
   pinMode(PIN_RCWL, INPUT);
 
-  // Configuración Wi-Fi sin ahorro de energía y en Canal 1 fijo
+  WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
   esp_wifi_set_ps(WIFI_PS_NONE);
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
-
-  Serial.println("\n==========================================");
-  Serial.print(">>> MAC REAL DE WI-FI STA DEL PERIFERICO: ");
-  Serial.println(WiFi.macAddress());
-  Serial.println("==========================================");
 
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error al inicializar ESP-NOW en Periférico");
@@ -95,7 +94,7 @@ void setup() {
   }
 
   esp_now_register_recv_cb(OnDataRecv);
-  Serial.println("[PERIFERICO] Listo esperando órdenes en Canal 1 (Power Save OFF)...");
+  Serial.println("[PERIFERICO] Escuchando Broadcast en Canal 1...");
 }
 
 void loop() {
@@ -117,6 +116,7 @@ void loop() {
       esp_now_add_peer(&peerInfo);
     }
 
+    esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
     esp_now_send(macCentral, (uint8_t *) &datosSalida, sizeof(datosSalida));
     Serial.print("[PERIFERICO] Reacción enviada a la Central: ");
     Serial.println(reactionTime);
