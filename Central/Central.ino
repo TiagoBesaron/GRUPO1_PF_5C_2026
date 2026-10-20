@@ -17,7 +17,7 @@
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
-
+// MAC REAL del Pod Periférico (Pod 1)
 uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x87, 0x0F, 0xA4 };
 
 typedef struct struct_message {
@@ -77,7 +77,13 @@ void solicitarEncendidoLocal(uint8_t r, uint8_t g, uint8_t b) {
   }
 }
 
-// Callback al recibir reacción por ESP-NOW desde Pod 1
+// Callback de confirmación de envío por ESP-NOW (Firma adaptada a ESP32 Core v3.x)
+void OnDataSent(const wifi_tx_info_t *tx_info, esp_now_send_status_t status) {
+  Serial.print("[CENTRAL] Estado envio a Pod 1: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "ENTREGADO EXITOSO ✅" : "FALLÓ (Periferico no responde) ❌");
+}
+
+// Callback al recibir respuesta de reacción por ESP-NOW desde Pod 1
 void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
   memcpy(&datosRecepcion, incomingData, sizeof(datosRecepcion));
 
@@ -87,19 +93,21 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
     pTxCharacteristic->notify();
     Serial.print("[CENTRAL] Reacción recibida de Pod ");
     Serial.print(datosRecepcion.podId);
-    Serial.println(" retransmitted a la App.");
+    Serial.println(" retransmitida a la App.");
   }
 }
 
 class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer *pServer) {
     appConectada = true;
+    Serial.println("[CENTRAL] App conectada por BLE.");
   }
   void onDisconnect(BLEServer *pServer) {
     appConectada = false;
     esperandoSensorLocal = false;
     comandoPendienteLocal = false;
     apagarLEDsLocales();
+    Serial.println("[CENTRAL] App desconectada. Reiniciando publicidad BLE...");
     pServer->getAdvertising()->start();
   }
 };
@@ -140,7 +148,7 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
 void setup() {
   Serial.begin(115200);
   strip.begin();
-  strip.setBrightness(255); // Brillo máximo de hardware para recibir RGB directamente desde Flutter
+  strip.setBrightness(255);
   apagarLEDsLocales();
   pinMode(PIN_RCWL, INPUT);
 
@@ -151,6 +159,7 @@ void setup() {
     Serial.println("Error al inicializar ESP-NOW en Central");
     return;
   }
+  esp_now_register_send_cb(OnDataSent);
   esp_now_register_recv_cb(OnDataRecv);
 
   esp_now_peer_info_t peerInfo = {};
@@ -186,6 +195,7 @@ void loop() {
     return;
   }
 
+  // Lectura del sensor RCWL local (Pod 0)
   if (esperandoSensorLocal && digitalRead(PIN_RCWL) == HIGH) {
     unsigned long reactionTime = millis() - startTimeLocal;
     esperandoSensorLocal = false;
@@ -198,6 +208,7 @@ void loop() {
     }
   }
 
+  // Desbloqueo si la mano estaba encima cuando llegó la orden
   if (comandoPendienteLocal && digitalRead(PIN_RCWL) == LOW) {
     comandoPendienteLocal = false;
     encenderLEDsLocales(pendingR, pendingG, pendingB);

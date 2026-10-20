@@ -23,7 +23,7 @@ typedef struct struct_message {
 struct_message datosEntrada;
 struct_message datosSalida;
 
-uint8_t macCentral[6];
+uint8_t macCentral[ 0x3C, 0x0F, 0x02, 0x84, 0x2A, 0x64 ];
 bool esperandoSensor = false;
 bool comandoPendiente = false;
 uint8_t pendingR = 0, pendingG = 0, pendingB = 0;
