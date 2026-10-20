@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:go_router/go_router.dart';
 import '../provider/bluetooth_provider.dart';
+import '../provider/perfil_provider.dart';
+import '../provider/user_mode_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -18,6 +20,8 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = FirebaseAuth.instance.currentUser;
     final btState = ref.watch(bluetoothProvider);
+    final perfilActivo = ref.watch(perfilActivoProvider);
+    final esModoProfesional = ref.watch(modoProfesionalProvider);
     final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -48,7 +52,7 @@ class HomeScreen extends ConsumerWidget {
                   final nombre = (currentUser?.displayName != null &&
                           currentUser!.displayName!.isNotEmpty)
                       ? currentUser.displayName!
-                      : "Atleta";
+                      : "Entrenador";
 
                   return Text(
                     "¡Hola, $nombre! 👋",
@@ -59,9 +63,62 @@ class HomeScreen extends ConsumerWidget {
                   );
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // Tarjeta Estado Bluetooth (Corregido con Material e InkWell)
+              // TARJETA DE PACIENTE / ATLETA SELECCIONADO (SOLO EN MODO PROFESIONAL)
+              if (esModoProfesional) ...[
+                Material(
+                  color: isDark ? const Color(0xFF1E293B) : Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    onTap: () => context.push('/gestionar-perfiles'),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: perfilActivo != null ? Colors.blueAccent : Colors.grey,
+                            child: Icon(
+                              perfilActivo != null ? Icons.person : Icons.people_outline,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Atleta / Paciente Activo:",
+                                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                                Text(
+                                  perfilActivo?.nombre ?? "Perfil Principal",
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          OutlinedButton(
+                            onPressed: () => context.push('/gestionar-perfiles'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                            child: const Text('CAMBIAR'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Tarjeta Estado Bluetooth
               Material(
                 color: cardColor,
                 borderRadius: BorderRadius.circular(12),
@@ -339,6 +396,14 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
 
+              if (esModoProfesional) ...[
+                _QuickAccessItem(
+                  icon: Icons.people_outline,
+                  title: "Gestionar Pacientes y Atletas",
+                  onTap: () => context.push('/gestionar-perfiles'),
+                ),
+                const SizedBox(height: 8),
+              ],
               _QuickAccessItem(
                 icon: Icons.bluetooth,
                 title: "Vincular Pod BLE",
@@ -349,18 +414,6 @@ class HomeScreen extends ConsumerWidget {
                 icon: Icons.history,
                 title: "Ver historial de tiempos",
                 onTap: () => context.push('/tiempos'),
-              ),
-              const SizedBox(height: 8),
-              _QuickAccessItem(
-                icon: Icons.person_outline,
-                title: "Mi perfil",
-                onTap: () => context.push('/edit-profile'),
-              ),
-              const SizedBox(height: 8),
-              _QuickAccessItem(
-                icon: Icons.settings_outlined,
-                title: "Ajustes y Configuración",
-                onTap: () => context.push('/settings'),
               ),
               const SizedBox(height: 40),
             ],
@@ -423,7 +476,6 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// Widget adaptado con Material para eliminar el error del ListTile
 class _QuickAccessItem extends StatelessWidget {
   final IconData icon;
   final String title;

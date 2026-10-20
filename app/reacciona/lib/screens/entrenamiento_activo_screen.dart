@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:go_router/go_router.dart';
 import '../provider/bluetooth_provider.dart';
+import '../provider/perfil_provider.dart';
+import '../provider/user_mode_provider.dart';
 
 class EntrenamientoActivoScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> config;
@@ -24,23 +26,28 @@ class _EntrenamientoActivoScreenState
   late int tiempoLimiteSeg;
   int tiempoRestanteSeg = 0;
   Timer? _timerTiempo;
+  Timer? _timerDistractor;
 
-  late String modo; // 'rondas', 'tiempo', 'manual', 'bicolor'
+  late String modo;
   List<double> tiemposObtenidos = [];
+  int cantidadErrores = 0;
   bool esperandoSensor = false;
   bool enPausaEntreRondas = false;
   bool ledEncendido = false;
   bool sesionTerminada = false;
+  bool esColor1Actual = true;
 
-  int podActivoActual = -1; // -1 significa ningún pod activo
+  int podActivoActual = -1;
   String estadoTexto = "Preparándote...";
 
   final List<List<int>> listaRGB = [
-    [0, 255, 0],   // Verde
-    [255, 0, 0],   // Rojo
-    [0, 0, 255],   // Azul
-    [255, 255, 0], // Amarillo
-    [128, 0, 128], // Violeta
+    [255, 0, 0],
+    [255, 128, 0],
+    [255, 255, 0],
+    [0, 255, 0],
+    [0, 0, 255],
+    [0, 191, 255],
+    [128, 0, 128],
   ];
 
   @override
@@ -81,18 +88,15 @@ class _EntrenamientoActivoScreenState
     });
   }
 
-  // Obtiene el color correspondiente aplicando intensidad
   List<int> obtenerRGBRonda() {
     double factorIntensidad =
         ((widget.config['intensidad'] ?? 100) as num) / 100.0;
     List<int> rawRgb;
 
     if (modo == 'bicolor') {
-      // Elige aleatoriamente 50/50 entre Color 1 y Color 2
-      bool elegirColor1 = Random().nextBool();
       List<int> c1 = List<int>.from(widget.config['rgbBase'] ?? [0, 255, 0]);
       List<int> c2 = List<int>.from(widget.config['rgbBase2'] ?? [255, 0, 0]);
-      rawRgb = elegirColor1 ? c1 : c2;
+      rawRgb = esColor1Actual ? c1 : c2;
     } else if (widget.config['colorAleatorio'] == true) {
       rawRgb = listaRGB[Random().nextInt(listaRGB.length)];
     } else {
@@ -108,6 +112,7 @@ class _EntrenamientoActivoScreenState
 
   Future<void> iniciarSiguienteRonda() async {
     if (sesionTerminada) return;
+    _timerDistractor?.cancel();
 
     if ((modo == 'rondas' || modo == 'bicolor') && rondaActual >= rondasTotal) {
       finalizarEntrenamiento();
@@ -145,6 +150,11 @@ class _EntrenamientoActivoScreenState
 
   void _encenderPod(int podIndex) {
     if (sesionTerminada) return;
+    _timerDistractor?.cancel();
+
+    if (modo == 'bicolor') {
+      esColor1Actual = Random().nextBool();
+    }
 
     List<int> rgb = obtenerRGBRonda();
 
@@ -156,11 +166,36 @@ class _EntrenamientoActivoScreenState
       esperandoSensor = true;
       ledEncendido = true;
       podActivoActual = podIndex;
-      estadoTexto = "¡Pasa la mano por el Pod ${podIndex + 1}!";
+      if (modo == 'bicolor') {
+        estadoTexto = esColor1Actual
+            ? "¡TOCÁ el Pod ${podIndex + 1}! (Color 1)"
+            : "¡NO TOCAR! (Color 2 en Pod ${podIndex + 1})";
+      } else {
+        estadoTexto = "¡Pasa la mano por el Pod ${podIndex + 1}!";
+      }
     });
+
+    if (modo == 'bicolor' && !esColor1Actual) {
+      double distractorSeg =
+          ((widget.config['tiempoDistractorSeg'] ?? 2.0) as num).toDouble();
+      int distractorMs = (distractorSeg * 1000).round();
+
+      _timerDistractor = Timer(Duration(milliseconds: distractorMs), () {
+        if (mounted && esperandoSensor && !sesionTerminada) {
+          _apagarPodActual();
+          setState(() {
+            estadoTexto = "¡Excelente! Color 2 ignorado.";
+          });
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted && !sesionTerminada) iniciarSiguienteRonda();
+          });
+        }
+      });
+    }
   }
 
   void _apagarPodActual() {
+    _timerDistractor?.cancel();
     if (podActivoActual != -1) {
       String comando = "EMPEZAR:$podActivoActual,0,0,0";
       ref.read(bluetoothProvider.notifier).enviarComando(comando);
@@ -178,23 +213,44 @@ class _EntrenamientoActivoScreenState
 
   void procesarTiempoRespuesta(String ultimoTiempoStr) {
     if (!esperandoSensor || sesionTerminada) return;
+    _timerDistractor?.cancel();
 
     double tiempoSeg =
         double.tryParse(ultimoTiempoStr.replaceAll(" s", "")) ?? 0.0;
-    tiemposObtenidos.add(tiempoSeg);
-
     int podPrevio = podActivoActual;
 
-    setState(() {
-      esperandoSensor = false;
-      ledEncendido = false;
-      podActivoActual = -1;
-      estadoTexto =
-          "¡Toque en Pod ${podPrevio + 1}! (${tiempoSeg.toStringAsFixed(3)} s)";
-    });
+    if (modo == 'bicolor') {
+      if (esColor1Actual) {
+        tiemposObtenidos.add(tiempoSeg);
+        setState(() {
+          esperandoSensor = false;
+          ledEncendido = false;
+          podActivoActual = -1;
+          estadoTexto =
+              "¡Toque en Pod ${podPrevio + 1}! (${tiempoSeg.toStringAsFixed(3)} s)";
+        });
+      } else {
+        cantidadErrores++;
+        setState(() {
+          esperandoSensor = false;
+          ledEncendido = false;
+          podActivoActual = -1;
+          estadoTexto = "¡Error! Tocaste el Color 2 en Pod ${podPrevio + 1}";
+        });
+      }
+    } else {
+      tiemposObtenidos.add(tiempoSeg);
+      setState(() {
+        esperandoSensor = false;
+        ledEncendido = false;
+        podActivoActual = -1;
+        estadoTexto =
+            "¡Toque en Pod ${podPrevio + 1}! (${tiempoSeg.toStringAsFixed(3)} s)";
+      });
+    }
 
     if (modo != 'manual') {
-      Future.delayed(const Duration(milliseconds: 200), () {
+      Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted && !sesionTerminada) iniciarSiguienteRonda();
       });
     }
@@ -204,6 +260,7 @@ class _EntrenamientoActivoScreenState
     if (sesionTerminada || !mounted) return;
 
     _timerTiempo?.cancel();
+    _timerDistractor?.cancel();
     setState(() {
       sesionTerminada = true;
       esperandoSensor = false;
@@ -241,6 +298,7 @@ class _EntrenamientoActivoScreenState
   Future<void> finalizarEntrenamiento() async {
     if (sesionTerminada) return;
     _timerTiempo?.cancel();
+    _timerDistractor?.cancel();
     setState(() => sesionTerminada = true);
 
     _apagarPodActual();
@@ -250,36 +308,79 @@ class _EntrenamientoActivoScreenState
         : tiemposObtenidos.reduce((a, b) => a + b) / tiemposObtenidos.length;
 
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null && tiemposObtenidos.isNotEmpty) {
-      final ref =
-          FirebaseDatabase.instance.ref("usuarios/${user.uid}/sesiones");
-      await ref.push().set({
-        "rondas": tiemposObtenidos.length,
-        "modo": modo,
-        "promedio_seg": promedio,
-        "tiempos": tiemposObtenidos,
-        "timestamp": ServerValue.timestamp,
-      });
-    }
+    final perfilActivo = ref.read(perfilActivoProvider);
+    final esModoProfesional = ref.read(modoProfesionalProvider);
+
+    final notasController = TextEditingController();
 
     if (!mounted) return;
 
+    // Diálogo final con campo de anotaciones
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text("¡Entrenamiento Finalizado! 🏆"),
-        content: Text(
-          "Toques registrados: ${tiemposObtenidos.length}\n"
-          "Promedio: ${promedio.toStringAsFixed(3)} s",
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (esModoProfesional) ...[
+                Text(
+                  "Atleta/Paciente: ${perfilActivo?.nombre ?? 'Perfil Principal'}",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Text("Toques válidos: ${tiemposObtenidos.length}"),
+              Text("Promedio: ${promedio.toStringAsFixed(3)} s"),
+              if (modo == 'bicolor') Text("Errores cometidos: $cantidadErrores"),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: notasController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Anotaciones de la sesión (Opcional)',
+                  hintText: 'Ej: Molestia física, buena evolución, etc.',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.note_add_outlined),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.go('/home');
+          ElevatedButton(
+            onPressed: () async {
+              if (user != null &&
+                  (tiemposObtenidos.isNotEmpty || cantidadErrores > 0)) {
+                final refBD = FirebaseDatabase.instance
+                    .ref("usuarios/${user.uid}/sesiones");
+                await refBD.push().set({
+                  "rondas": tiemposObtenidos.length,
+                  "modo": modo,
+                  "promedio_seg": promedio,
+                  "tiempos": tiemposObtenidos,
+                  "errores": cantidadErrores,
+                  "perfil_id": esModoProfesional
+                      ? (perfilActivo?.id ?? "principal")
+                      : "principal",
+                  "perfil_nombre": esModoProfesional
+                      ? (perfilActivo?.nombre ?? "Perfil Principal")
+                      : "Uso Personal",
+                  "notas_sesion": notasController.text.trim(), // <--- GUARDAR NOTAS
+                  "timestamp": ServerValue.timestamp,
+                });
+              }
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                context.go('/home');
+              }
             },
-            child: const Text("Aceptar"),
+            child: const Text("GUARDAR Y FINALIZAR"),
           )
         ],
       ),
@@ -289,6 +390,7 @@ class _EntrenamientoActivoScreenState
   @override
   void dispose() {
     _timerTiempo?.cancel();
+    _timerDistractor?.cancel();
     super.dispose();
   }
 
@@ -321,6 +423,8 @@ class _EntrenamientoActivoScreenState
     Color currentColor = Color.fromRGBO(
         currentRgb[0], currentRgb[1], currentRgb[2], 1.0);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final perfilActivo = ref.watch(perfilActivoProvider);
+    final esModoProfesional = ref.watch(modoProfesionalProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -334,6 +438,18 @@ class _EntrenamientoActivoScreenState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (esModoProfesional) ...[
+                Chip(
+                  avatar: const Icon(Icons.person, size: 16),
+                  label: Text(
+                    perfilActivo?.nombre ?? "Perfil Principal",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                ),
+                const SizedBox(height: 12),
+              ],
+
               if (modo == 'tiempo') ...[
                 Chip(
                   avatar: const Icon(Icons.timer, color: Colors.white, size: 18),
@@ -352,7 +468,6 @@ class _EntrenamientoActivoScreenState
                 const SizedBox(height: 16),
               ],
 
-              // VISTA PARA MODO MANUAL
               if (modo == 'manual') ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -375,7 +490,6 @@ class _EntrenamientoActivoScreenState
                   ],
                 ),
               ] else ...[
-                // VISTA PARA MODO RONDAS / TIEMPO / BICOLOR
                 Container(
                   width: 120,
                   height: 120,
@@ -402,18 +516,19 @@ class _EntrenamientoActivoScreenState
 
               const SizedBox(height: 24),
 
-              // ÁREA DE TIEMPO / ESTADO
               Text(
                 estadoTexto,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: (modo == 'bicolor' && ledEncendido)
+                      ? (esColor1Actual ? Colors.green : Colors.redAccent)
+                      : null,
                 ),
               ),
               const SizedBox(height: 16),
 
-              // REGISTRO Y MOSTRADOR DE TIEMPO OBTENIDO
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
@@ -434,7 +549,7 @@ class _EntrenamientoActivoScreenState
                 child: Column(
                   children: [
                     const Text(
-                      "TIEMPO",
+                      "ÚLTIMO TIEMPO VÁLIDO",
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -453,16 +568,38 @@ class _EntrenamientoActivoScreenState
                         color: Colors.blueAccent,
                       ),
                     ),
-                    if (tiemposObtenidos.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        "Total toques: ${tiemposObtenidos.length}",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Toques válidos: ${tiemposObtenidos.length}",
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          ),
                         ),
-                      ),
-                    ],
+                        if (modo == 'bicolor') ...[
+                          const SizedBox(width: 16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              "Errores: $cantidadErrores",
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),

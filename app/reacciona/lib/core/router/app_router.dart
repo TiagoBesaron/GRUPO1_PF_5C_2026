@@ -13,14 +13,14 @@ import '../../screens/config_entrenamiento_screen.dart';
 import '../../screens/entrenamiento_activo_screen.dart';
 import '../../screens/tiempos_screen.dart';
 import '../../screens/settings_screen.dart';
+import '../../screens/terminos_privacidad_screen.dart';
+import '../../screens/gestionar_perfiles_screen.dart';
 
-// Notificador seguro que delega el redibujado al finalizar el frame de Flutter
 class SafeRouterRefreshStream extends ChangeNotifier {
   late final StreamSubscription<dynamic> _subscription;
 
   SafeRouterRefreshStream(Stream<dynamic> stream) {
     _subscription = stream.listen((_) {
-      // Evita colisiones durante la fase de build ejecutando la notificación justo después
       WidgetsBinding.instance.addPostFrameCallback((_) {
         notifyListeners();
       });
@@ -35,7 +35,6 @@ class SafeRouterRefreshStream extends ChangeNotifier {
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
-  // Instanciamos el notificador conectado a Firebase Auth
   final refreshNotifier = SafeRouterRefreshStream(FirebaseAuth.instance.authStateChanges());
 
   ref.onDispose(() {
@@ -47,16 +46,16 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final user = FirebaseAuth.instance.currentUser;
-      final isLoggingIn =
-          state.matchedLocation == '/login' || state.matchedLocation == '/register';
+      final isPublicRoute =
+          state.matchedLocation == '/login' ||
+          state.matchedLocation == '/register' ||
+          state.matchedLocation == '/terminos-privacidad';
 
-      // Redirección si no hay usuario autenticado
-      if (user == null && !isLoggingIn) {
+      if (user == null && !isPublicRoute) {
         return '/login';
       }
 
-      // Redirección si ya inició sesión e intenta ir a login/registro
-      if (user != null && isLoggingIn) {
+      if (user != null && (state.matchedLocation == '/login' || state.matchedLocation == '/register')) {
         return '/home';
       }
 
@@ -121,6 +120,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/terminos-privacidad',
+        builder: (context, state) => const TerminosPrivacidadScreen(),
+      ),
+      GoRoute(
+        path: '/gestionar-perfiles',
+        builder: (context, state) => const GestionarPerfilesScreen(),
       ),
     ],
   );
