@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../provider/theme_provider.dart';
 import '../provider/user_mode_provider.dart';
+import '../provider/sound_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -13,7 +14,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  bool _sonidoHabilitado = true;
   bool _vibracionHabilitada = true;
 
   @override
@@ -21,6 +21,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final themeMode = ref.watch(themeProvider);
     final isDarkMode = themeMode == ThemeMode.dark;
     final esModoProfesional = ref.watch(modoProfesionalProvider);
+    final sonidoHabilitado = ref.watch(soundEnabledProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -114,11 +115,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   SwitchListTile(
                     secondary: const Icon(Icons.volume_up, color: Colors.blue),
                     title: const Text('Efectos de Sonido'),
-                    subtitle: const Text('Reproducir sonidos al presionar los pods'),
-                    value: _sonidoHabilitado,
+                    subtitle: const Text('Reproducir sonidos al iniciar y finalizar la rutina'),
+                    value: sonidoHabilitado,
                     activeThumbColor: Colors.blue,
                     onChanged: (val) {
-                      setState(() => _sonidoHabilitado = val);
+                      ref.read(soundEnabledProvider.notifier).state = val;
                     },
                   ),
                   const Divider(height: 1),

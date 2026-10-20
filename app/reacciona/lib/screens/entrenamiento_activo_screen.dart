@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../provider/bluetooth_provider.dart';
 import '../provider/perfil_provider.dart';
 import '../provider/user_mode_provider.dart';
+import '../provider/sound_provider.dart';
 
 class EntrenamientoActivoScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> config;
@@ -59,6 +60,7 @@ class _EntrenamientoActivoScreenState
 
     if (modo == 'manual') {
       estadoTexto = "Tocá un cuadrado para encender su Pod";
+      ref.read(soundServiceProvider).playStart();
     } else {
       if (modo == 'tiempo') {
         tiempoRestanteSeg = tiempoLimiteSeg;
@@ -117,6 +119,10 @@ class _EntrenamientoActivoScreenState
     if ((modo == 'rondas' || modo == 'bicolor') && rondaActual >= rondasTotal) {
       finalizarEntrenamiento();
       return;
+    }
+
+    if (rondaActual == 0) {
+      ref.read(soundServiceProvider).playStart();
     }
 
     setState(() {
@@ -302,6 +308,7 @@ class _EntrenamientoActivoScreenState
     setState(() => sesionTerminada = true);
 
     _apagarPodActual();
+    ref.read(soundServiceProvider).playFinish();
 
     double promedio = tiemposObtenidos.isEmpty
         ? 0
