@@ -84,6 +84,11 @@ void OnDataSent(const wifi_tx_info_t *tx_info, esp_now_send_status_t status) {
 
 // Callback al recibir respuesta de reacción por ESP-NOW desde Pod 1
 void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
+  // Ignorar paquetes que no tengan el formato esperado (p. ej. de otros sketches)
+  if (len != sizeof(struct_message)) {
+    Serial.printf("[CENTRAL] Paquete ignorado: %d bytes (se esperaban %d)\n", len, (int)sizeof(struct_message));
+    return;
+  }
   memcpy(&datosRecepcion, incomingData, sizeof(datosRecepcion));
 
   if (datosRecepcion.esReaccion && pTxCharacteristic != NULL && appConectada) {
@@ -136,7 +141,10 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
           datosEnvio.g = g;
           datosEnvio.b = b;
           datosEnvio.esReaccion = false;
-          esp_now_send(macPod1, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
+          esp_err_t r = esp_now_send(macPod1, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
+          if (r != ESP_OK) {
+            Serial.printf("[CENTRAL] esp_now_send error: %s\n", esp_err_to_name(r));
+          }
         }
       }
     }
@@ -150,10 +158,17 @@ void setup() {
   apagarLEDsLocales();
   pinMode(PIN_RCWL, INPUT);
 
+  delay(1500);  // tiempo para que abra el USB CDC del C3 SuperMini
+
   // Configuración Wi-Fi sin ahorro de energía y en Canal 1 fijo
   WiFi.mode(WIFI_STA);
+  WiFi.disconnect();                    // no asociarse a ningún router (cambiaría el canal)
   esp_wifi_set_ps(WIFI_PS_NONE);
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);   // FIX C3 SuperMini: a potencia máxima la antena no transmite bien
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+
+  Serial.print("[CENTRAL] MAC Wi-Fi STA: ");
+  Serial.println(WiFi.macAddress());
 
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error al inicializar ESP-NOW en Central");
@@ -166,8 +181,12 @@ void setup() {
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, macPod1, 6);
   peerInfo.channel = 1;
+  peerInfo.ifidx = WIFI_IF_STA;
   peerInfo.encrypt = false;
-  esp_now_add_peer(&peerInfo);
+  esp_err_t r = esp_now_add_peer(&peerInfo);
+  if (r != ESP_OK) {
+    Serial.printf("[CENTRAL] Error registrando Pod 1: %s\n", esp_err_to_name(r));
+  }
 
   BLEDevice::init("ACTIVELO_CENTRAL");
   pServer = BLEDevice::createServer();
