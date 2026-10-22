@@ -73,8 +73,25 @@ class _ConfigEntrenamientoScreenState
     }
   }
 
+  void _cambiarModo(ModoEntrenamiento nuevoModo) {
+    setState(() {
+      _modo = nuevoModo;
+      if (_modo == ModoEntrenamiento.bicolor) {
+        if (!_coloresBicolor.contains(_colorSeleccionado)) {
+          _colorSeleccionado = 'Verde';
+        }
+        if (_colorSeleccionado == _colorSeleccionado2) {
+          _colorSeleccionado2 = _colorSeleccionado == 'Rojo' ? 'Verde' : 'Rojo';
+        }
+      }
+    });
+  }
+
   void _navegarAEntrenamiento() {
     final btState = ref.read(bluetoothProvider);
+
+    // Limpia cualquier advertencia previa para evitar que se acumulen en cola
+    ScaffoldMessenger.of(context).clearSnackBars();
 
     if (!btState.conectado) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,7 +101,7 @@ class _ConfigEntrenamientoScreenState
           ),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 3),
           action: SnackBarAction(
             label: 'CONECTAR',
             textColor: Colors.white,
@@ -104,7 +121,7 @@ class _ConfigEntrenamientoScreenState
           ),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
+          duration: Duration(seconds: 3),
         ),
       );
       return;
@@ -230,10 +247,10 @@ class _ConfigEntrenamientoScreenState
               child: RadioGroup<ModoEntrenamiento>(
                 groupValue: _modo,
                 onChanged: (val) {
-                  if (val != null) setState(() => _modo = val);
+                  if (val != null) _cambiarModo(val);
                 },
-                child: Column(
-                  children: const [
+                child: const Column(
+                  children: [
                     RadioListTile<ModoEntrenamiento>(
                       title: Text('Por Rondas'),
                       subtitle: Text('Completa un número fijo de toques'),
@@ -364,7 +381,7 @@ class _ConfigEntrenamientoScreenState
             ),
             const SizedBox(height: 24),
 
-            // SECCIÓN DE CONFIGURACIÓN BICOLOR (Tiempo de distractor)
+            // SECCIÓN DE CONFIGURACIÓN BICOLOR
             if (_modo == ModoEntrenamiento.bicolor) ...[
               const Text(
                 'Tiempo Límite Color 2 (Distractor)',
@@ -525,7 +542,9 @@ class _ConfigEntrenamientoScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           DropdownButtonFormField<String>(
-                            initialValue: _colorSeleccionado,
+                            value: _coloresBicolor.contains(_colorSeleccionado)
+                                ? _colorSeleccionado
+                                : 'Verde',
                             decoration: const InputDecoration(
                               labelText: 'Color 1 (A tocar)',
                               border: OutlineInputBorder(),
@@ -543,7 +562,9 @@ class _ConfigEntrenamientoScreenState
                           ),
                           const SizedBox(height: 16),
                           DropdownButtonFormField<String>(
-                            initialValue: _colorSeleccionado2,
+                            value: _coloresBicolor.contains(_colorSeleccionado2)
+                                ? _colorSeleccionado2
+                                : 'Rojo',
                             decoration: const InputDecoration(
                               labelText: 'Color 2 (NO tocar / Ignorar)',
                               border: OutlineInputBorder(),
@@ -565,7 +586,9 @@ class _ConfigEntrenamientoScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           DropdownButtonFormField<String>(
-                            initialValue: _colorSeleccionado,
+                            value: _coloresDisponibles.contains(_colorSeleccionado)
+                                ? _colorSeleccionado
+                                : 'Verde',
                             decoration: const InputDecoration(
                               labelText: 'Seleccionar Color Base',
                               border: OutlineInputBorder(),

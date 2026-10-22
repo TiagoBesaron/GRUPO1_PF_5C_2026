@@ -86,26 +86,35 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
 
               await _notifySubscription?.cancel();
               _notifySubscription = char.onValueReceived.listen((value) async {
-                String mensaje = utf8.decode(value);
-                if (mensaje.startsWith("REACCION:")) {
-                  String msStr = mensaje.replaceAll("REACCION:", "");
-                  int ms = int.tryParse(msStr) ?? 0;
-                  double segundos = ms / 1000.0;
+                String mensaje = utf8.decode(value).trim();
+                debugPrint("Notificación BLE recibida: $mensaje");
 
-                  state = state.copyWith(
-                    ultimoTiempo: "${segundos.toStringAsFixed(3)} s",
-                    reactionTicket: state.reactionTicket + 1,
-                  );
+                // Permite procesar formatos como "REACCION:350", "REACCION:1:350", "REACCION_1:350", etc.
+                if (mensaje.toUpperCase().contains("REACCION")) {
+                  final matches = RegExp(r'\d+').allMatches(mensaje);
+                  if (matches.isNotEmpty) {
+                    // El último número de la cadena corresponde a los milisegundos de reacción
+                    int ms = int.tryParse(matches.last.group(0)!) ?? 0;
 
-                  final user = FirebaseAuth.instance.currentUser;
-                  if (user != null) {
-                    final ref = FirebaseDatabase.instance
-                        .ref("usuarios/${user.uid}/tiempos");
-                    await ref.push().set({
-                      "tiempoMs": ms,
-                      "tiempoSeg": segundos,
-                      "timestamp": ServerValue.timestamp,
-                    });
+                    if (ms > 0) {
+                      double segundos = ms / 1000.0;
+
+                      state = state.copyWith(
+                        ultimoTiempo: "${segundos.toStringAsFixed(3)} s",
+                        reactionTicket: state.reactionTicket + 1,
+                      );
+
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user != null) {
+                        final ref = FirebaseDatabase.instance
+                            .ref("usuarios/${user.uid}/tiempos");
+                        await ref.push().set({
+                          "tiempoMs": ms,
+                          "tiempoSeg": segundos,
+                          "timestamp": ServerValue.timestamp,
+                        });
+                      }
+                    }
                   }
                 }
               });

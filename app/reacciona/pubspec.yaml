@@ -1,28 +1,26 @@
-name: activelo
-description: "A new Flutter project."
+name: reacciona
+description: "Aplicación Activelo LED Trainer"
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.5
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
-  firebase_core: ^5.0.0
   flutter:
     sdk: flutter
-  go_router: ^18.1.1
-  flutter_blue_plus: ^2.3.14
-  flutter_riverpod: ^3.4.3
-  firebase_auth: ^7.0.0
-  firebase_database: ^13.0.0
-  pdf: ^3.10.8
-  printing: ^5.13.0
-  audioplayers: ^6.8.1
+  flutter_riverpod: ^2.5.1
+  firebase_core: ^2.27.0
+  firebase_auth: ^4.17.8
+  firebase_database: ^10.4.8
+  flutter_blue_plus: ^1.31.14
+  go_router: ^13.2.0
+  audioplayers: ^6.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
