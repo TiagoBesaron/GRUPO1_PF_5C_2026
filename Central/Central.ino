@@ -6,6 +6,7 @@
 #include <esp_now.h>
 #include <WiFi.h>
 #include <esp_wifi.h>
+#include <esp_idf_version.h>
 
 #define PIN_NEOPIXEL 7
 #define NUM_PIXELS 24
@@ -76,8 +77,13 @@ void solicitarEncendidoLocal(uint8_t r, uint8_t g, uint8_t b) {
   }
 }
 
-// Callback de confirmación de envío por ESP-NOW (ESP32 Core v3.x)
+// Callback de confirmación de envío por ESP-NOW.
+// La firma cambió en ESP-IDF 5.5 (core Arduino 3.3.x); así compila en ambas versiones.
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
 void OnDataSent(const wifi_tx_info_t *tx_info, esp_now_send_status_t status) {
+#else
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+#endif
   Serial.print("[CENTRAL] Estado envio a Pod 1: ");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "ENTREGADO EXITOSO ✅" : "FALLÓ (Periferico no responde) ❌");
 }
