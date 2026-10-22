@@ -63,6 +63,11 @@ void solicitarEncendido(uint8_t r, uint8_t g, uint8_t b) {
 
 void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
   Serial.println("[PERIFERICO] ¡PAQUETE RECIBIDO POR ESP-NOW! 🎉");
+  // Ignorar paquetes que no tengan el formato esperado (p. ej. de otros sketches)
+  if (len != sizeof(struct_message)) {
+    Serial.printf("[PERIFERICO] Paquete ignorado: %d bytes (se esperaban %d)\n", len, (int)sizeof(struct_message));
+    return;
+  }
   memcpy(&datosEntrada, incomingData, sizeof(datosEntrada));
   memcpy(macCentral, recv_info->src_addr, 6);
 
@@ -79,9 +84,13 @@ void setup() {
 
   pinMode(PIN_RCWL, INPUT);
 
+  delay(1500);  // tiempo para que abra el USB CDC del C3 SuperMini
+
   // Configuración Wi-Fi sin ahorro de energía y en Canal 1 fijo
   WiFi.mode(WIFI_STA);
+  WiFi.disconnect();                    // no asociarse a ningún router (cambiaría el canal)
   esp_wifi_set_ps(WIFI_PS_NONE);
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);   // FIX C3 SuperMini: a potencia máxima la antena no transmite bien
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
 
   Serial.println("\n==========================================");
@@ -111,13 +120,20 @@ void loop() {
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, macCentral, 6);
     peerInfo.channel = 1;
+    peerInfo.ifidx = WIFI_IF_STA;
     peerInfo.encrypt = false;
-    
+
     if (!esp_now_is_peer_exist(macCentral)) {
-      esp_now_add_peer(&peerInfo);
+      esp_err_t rp = esp_now_add_peer(&peerInfo);
+      if (rp != ESP_OK) {
+        Serial.printf("[PERIFERICO] Error registrando Central: %s\n", esp_err_to_name(rp));
+      }
     }
 
-    esp_now_send(macCentral, (uint8_t *) &datosSalida, sizeof(datosSalida));
+    esp_err_t r = esp_now_send(macCentral, (uint8_t *) &datosSalida, sizeof(datosSalida));
+    if (r != ESP_OK) {
+      Serial.printf("[PERIFERICO] esp_now_send error: %s\n", esp_err_to_name(r));
+    }
     Serial.print("[PERIFERICO] Reacción enviada a la Central: ");
     Serial.println(reactionTime);
   }
