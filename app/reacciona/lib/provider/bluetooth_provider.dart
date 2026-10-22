@@ -55,14 +55,13 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
   StreamSubscription<List<int>>? _notifySubscription;
 
   Future<void> conectar(BluetoothDevice device) async {
-    // Si ya estamos conectados a otro o al mismo dispositivo, forzamos desconexión limpia primero
     await desconectar();
 
     try {
-      // 1. Intentar conexión con Timeout de seguridad
+      // Intentar conexión
       await device.connect(timeout: const Duration(seconds: 6));
 
-      // 2. Escuchar en tiempo real el estado de la conexión física
+      // Escuchar estado de conexión física
       _connectionStateSub = device.connectionState.listen((connState) {
         if (connState == BluetoothConnectionState.disconnected) {
           _limpiarEstado();
@@ -71,7 +70,7 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
 
       await Future.delayed(const Duration(milliseconds: 300));
 
-      // 3. Descubrir servicios
+      // Descubrir servicios y características
       List<BluetoothService> services = await device.discoverServices();
       BluetoothCharacteristic? rxChar;
 
