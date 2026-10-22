@@ -17,10 +17,10 @@
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
-// Dirección BROADCAST: No requiere confirmación ACK de recepción
-uint8_t macBroadcast[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+// MAC REAL de Wi-Fi STA del Pod Periférico (Pod 1)
+uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x87, 0x0F, 0xA4 };
 
-typedef struct __attribute__((packed)) {
+typedef struct struct_message {
   uint8_t podId;
   uint8_t r;
   uint8_t g;
@@ -40,7 +40,6 @@ bool esperandoSensorLocal = false;
 bool comandoPendienteLocal = false;
 uint8_t pendingR = 0, pendingG = 0, pendingB = 0;
 unsigned long startTimeLocal = 0;
-unsigned long ultimoPingAuto = 0;
 
 void apagarLEDsLocales() {
   strip.clear();
@@ -55,6 +54,8 @@ void encenderLEDsLocales(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void solicitarEncendidoLocal(uint8_t r, uint8_t g, uint8_t b) {
+  if (!appConectada) return;
+
   if (r == 0 && g == 0 && b == 0) {
     esperandoSensorLocal = false;
     comandoPendienteLocal = false;
@@ -75,11 +76,13 @@ void solicitarEncendidoLocal(uint8_t r, uint8_t g, uint8_t b) {
   }
 }
 
+// Callback de confirmación de envío por ESP-NOW (ESP32 Core v3.x)
 void OnDataSent(const wifi_tx_info_t *tx_info, esp_now_send_status_t status) {
-  Serial.print("[CENTRAL] Paquete emitido al aire (Broadcast): ");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "OK ✅" : "ERROR AL TRANSMITIR ❌");
+  Serial.print("[CENTRAL] Estado envio a Pod 1: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "ENTREGADO EXITOSO ✅" : "FALLÓ (Periferico no responde) ❌");
 }
 
+// Callback al recibir respuesta de reacción por ESP-NOW desde Pod 1
 void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
   memcpy(&datosRecepcion, incomingData, sizeof(datosRecepcion));
 
@@ -133,9 +136,7 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
           datosEnvio.g = g;
           datosEnvio.b = b;
           datosEnvio.esReaccion = false;
-          
-          esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
-          esp_now_send(macBroadcast, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
+          esp_now_send(macPod1, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
         }
       }
     }
@@ -149,9 +150,8 @@ void setup() {
   apagarLEDsLocales();
   pinMode(PIN_RCWL, INPUT);
 
-  WiFi.persistent(false);
+  // Configuración Wi-Fi sin ahorro de energía y en Canal 1 fijo
   WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
   esp_wifi_set_ps(WIFI_PS_NONE);
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
 
@@ -161,6 +161,13 @@ void setup() {
   }
   esp_now_register_send_cb(OnDataSent);
   esp_now_register_recv_cb(OnDataRecv);
+
+  // Registrar Peer (Pod 1) obligatoriamente en Canal 1
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, macPod1, 6);
+  peerInfo.channel = 1;
+  peerInfo.encrypt = false;
+  esp_now_add_peer(&peerInfo);
 
   BLEDevice::init("ACTIVELO_CENTRAL");
   pServer = BLEDevice::createServer();
@@ -180,38 +187,22 @@ void setup() {
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->start();
 
-  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
-
-  esp_now_peer_info_t peerInfo = {};
-  memcpy(peerInfo.peer_addr, macBroadcast, 6);
-  peerInfo.channel = 1;
-  peerInfo.encrypt = false;
-  esp_now_add_peer(&peerInfo);
-
-  Serial.println("[CENTRAL] Test Broadcast iniciado en Canal 1.");
+  Serial.println("[CENTRAL] Puente BLE / ESP-NOW iniciado en Canal 1 (Power Save OFF).");
 }
 
 void loop() {
-  // Test automatico cada 3 segundos encendiendo Pod 1 en VERDE (0, 255, 0)
-  if (millis() - ultimoPingAuto > 3000) {
-    ultimoPingAuto = millis();
-    datosEnvio.podId = 1;
-    datosEnvio.r = 0;
-    datosEnvio.g = 255;
-    datosEnvio.b = 0;
-    datosEnvio.esReaccion = false;
-    
-    esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
-    Serial.println("[TEST] Enviando orden BROADCAST a Pod 1 (Verde)...");
-    esp_now_send(macBroadcast, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
+  if (!appConectada) {
+    delay(10);
+    return;
   }
 
+  // Lectura del sensor RCWL local (Pod 0)
   if (esperandoSensorLocal && digitalRead(PIN_RCWL) == HIGH) {
     unsigned long reactionTime = millis() - startTimeLocal;
     esperandoSensorLocal = false;
     apagarLEDsLocales();
 
-    if (pTxCharacteristic != NULL && appConectada) {
+    if (pTxCharacteristic != NULL) {
       String mensaje = "REACCION:" + String(reactionTime);
       pTxCharacteristic->setValue(mensaje.c_str());
       pTxCharacteristic->notify();
