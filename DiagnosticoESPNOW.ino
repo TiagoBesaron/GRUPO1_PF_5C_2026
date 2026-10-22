@@ -20,6 +20,7 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+#include <esp_idf_version.h>
 
 #define CANAL_ESPNOW 1          // Debe ser el mismo en TODAS las placas
 #define INTERVALO_PING_MS 2000
@@ -48,13 +49,20 @@ void macATexto(const uint8_t *mac, char *salida) {
 }
 
 // ---------------------------------------------------------------------
-// Callbacks (firma de ESP32 Arduino core 3.3.x, igual que el resto del repo)
+// Callbacks
+// La firma del callback de envio cambio en ESP-IDF 5.5 (core Arduino 3.3.x).
+// Con #if compila tanto en versiones viejas (core 3.0-3.2) como nuevas.
 // ---------------------------------------------------------------------
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
 void alEnviar(const wifi_tx_info_t *info, esp_now_send_status_t estado) {
+  const uint8_t *destino = info->des_addr;
+#else
+void alEnviar(const uint8_t *destino, esp_now_send_status_t estado) {
+#endif
   // Solo informamos los unicast (los broadcast siempre dan "exito")
-  if (memcmp(info->des_addr, MAC_BROADCAST, 6) == 0) return;
+  if (memcmp(destino, MAC_BROADCAST, 6) == 0) return;
   char m[18];
-  macATexto(info->des_addr, m);
+  macATexto(destino, m);
   snprintf(textoEvento, sizeof(textoEvento), "  -> PONG unicast a %s: %s", m,
            estado == ESP_NOW_SEND_SUCCESS ? "ENTREGADO (ACK OK)" : "FALLO (sin ACK)");
   hayEvento = true;
