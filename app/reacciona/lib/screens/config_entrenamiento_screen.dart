@@ -90,7 +90,7 @@ class _ConfigEntrenamientoScreenState
   void _navegarAEntrenamiento() {
     final btState = ref.read(bluetoothProvider);
 
-    // Limpia cualquier advertencia previa para evitar que se acumulen en cola
+    // Limpia cualquier advertencia previa existente
     ScaffoldMessenger.of(context).clearSnackBars();
 
     if (!btState.conectado) {
@@ -105,10 +105,20 @@ class _ConfigEntrenamientoScreenState
           action: SnackBarAction(
             label: 'CONECTAR',
             textColor: Colors.white,
-            onPressed: () => context.push('/bluetooth'),
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              context.push('/bluetooth');
+            },
           ),
         ),
       );
+
+      // Cierre forzado exacto a los 3 segundos
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        }
+      });
       return;
     }
 
@@ -124,6 +134,13 @@ class _ConfigEntrenamientoScreenState
           duration: Duration(seconds: 3),
         ),
       );
+
+      // Cierre forzado exacto a los 3 segundos
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        }
+      });
       return;
     }
 
