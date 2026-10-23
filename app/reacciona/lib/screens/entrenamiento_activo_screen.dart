@@ -135,7 +135,8 @@ class _EntrenamientoActivoScreenState
 
     if (!mounted || sesionTerminada) return;
 
-    int podAleatorio = Random().nextInt(2);
+    // AHORA SELECCIONA ALEATORIAMENTE ENTRE POD 0, POD 1 Y POD 2
+    int podAleatorio = Random().nextInt(3);
     _encenderPod(podAleatorio);
   }
 
@@ -465,8 +466,11 @@ class _EntrenamientoActivoScreenState
               ],
 
               if (modo == 'manual') ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                // VISTA MODO MANUAL CON PODS 1, 2 Y 3 EN UN WRAP ADAPTABLE
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
                     _buildPodSquare(
                       podIndex: 0,
@@ -475,11 +479,17 @@ class _EntrenamientoActivoScreenState
                       activeColor: currentColor,
                       isDark: isDark,
                     ),
-                    const SizedBox(width: 20),
                     _buildPodSquare(
                       podIndex: 1,
                       label: "2",
                       isActive: ledEncendido && podActivoActual == 1,
+                      activeColor: currentColor,
+                      isDark: isDark,
+                    ),
+                    _buildPodSquare(
+                      podIndex: 2,
+                      label: "3",
+                      isActive: ledEncendido && podActivoActual == 2,
                       activeColor: currentColor,
                       isDark: isDark,
                     ),
@@ -645,8 +655,8 @@ class _EntrenamientoActivoScreenState
         borderRadius: BorderRadius.circular(16),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 120,
-          height: 120,
+          width: 100,
+          height: 100,
           decoration: BoxDecoration(
             color: isActive
                 ? activeColor
@@ -680,18 +690,18 @@ class _EntrenamientoActivoScreenState
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 36,
+                  fontSize: 32,
                   fontWeight: FontWeight.bold,
                   color: isActive
                       ? Colors.white
                       : (isDark ? Colors.white : Colors.black),
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 isActive ? "ENCENDIDO" : "POD ${podIndex + 1}",
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: isActive
                       ? Colors.white.withValues(alpha: 0.9)

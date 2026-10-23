@@ -18,7 +18,7 @@
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
-// MAC REAL de Wi-Fi STA del Pod Periférico (Pod 1)
+// MAC Wi-Fi STA del Pod Periférico (Pod 1)
 uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x87, 0x0F, 0xA4 };
 
 typedef struct struct_message {
@@ -37,10 +37,15 @@ BLEServer *pServer = NULL;
 BLECharacteristic *pTxCharacteristic = NULL;
 bool appConectada = false;
 
+// Variables de estado local (Pod 0)
 bool esperandoSensorLocal = false;
 bool comandoPendienteLocal = false;
 uint8_t pendingR = 0, pendingG = 0, pendingB = 0;
 unsigned long startTimeLocal = 0;
+
+// Bandera para notificar tiempos del Pod 1 de forma segura desde el loop()
+volatile bool hayReaccionRemota = false;
+volatile uint32_t reactionTimeRemoto = 0;
 
 void apagarLEDsLocales() {
   strip.clear();
@@ -77,33 +82,24 @@ void solicitarEncendidoLocal(uint8_t r, uint8_t g, uint8_t b) {
   }
 }
 
-// Callback de confirmación de envío por ESP-NOW.
-// La firma cambió en ESP-IDF 5.5 (core Arduino 3.3.x); así compila en ambas versiones.
+// Confirmación de envío por ESP-NOW
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
 void OnDataSent(const wifi_tx_info_t *tx_info, esp_now_send_status_t status) {
 #else
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 #endif
   Serial.print("[CENTRAL] Estado envio a Pod 1: ");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "ENTREGADO EXITOSO ✅" : "FALLÓ (Periferico no responde) ❌");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "ENTREGADO EXITOSO ✅" : "FALLÓ ❌");
 }
 
-// Callback al recibir respuesta de reacción por ESP-NOW desde Pod 1
+// Callback de recepción ESP-NOW (Guarda el dato sin llamar a la pila BLE aquí adentro)
 void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
-  // Ignorar paquetes que no tengan el formato esperado (p. ej. de otros sketches)
-  if (len != sizeof(struct_message)) {
-    Serial.printf("[CENTRAL] Paquete ignorado: %d bytes (se esperaban %d)\n", len, (int)sizeof(struct_message));
-    return;
-  }
+  if (len != sizeof(struct_message)) return;
   memcpy(&datosRecepcion, incomingData, sizeof(datosRecepcion));
 
-  if (datosRecepcion.esReaccion && pTxCharacteristic != NULL && appConectada) {
-    String mensaje = "REACCION:" + String(datosRecepcion.reactionTime);
-    pTxCharacteristic->setValue(mensaje.c_str());
-    pTxCharacteristic->notify();
-    Serial.print("[CENTRAL] Reacción recibida de Pod ");
-    Serial.print(datosRecepcion.podId);
-    Serial.println(" retransmitida a la App.");
+  if (datosRecepcion.esReaccion) {
+    reactionTimeRemoto = datosRecepcion.reactionTime;
+    hayReaccionRemota = true; // Activa la bandera para que el loop() envíe por BLE
   }
 }
 
@@ -142,14 +138,15 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
         if (podTarget == 0) {
           solicitarEncendidoLocal((uint8_t)r, (uint8_t)g, (uint8_t)b);
         } else if (podTarget == 1) {
+          // Envío directo por ESP-NOW al Pod 1
           datosEnvio.podId = 1;
           datosEnvio.r = r;
           datosEnvio.g = g;
           datosEnvio.b = b;
           datosEnvio.esReaccion = false;
-          esp_err_t r = esp_now_send(macPod1, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
-          if (r != ESP_OK) {
-            Serial.printf("[CENTRAL] esp_now_send error: %s\n", esp_err_to_name(r));
+          esp_err_t err = esp_now_send(macPod1, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
+          if (err != ESP_OK) {
+            Serial.printf("[CENTRAL] esp_now_send error: %s\n", esp_err_to_name(err));
           }
         }
       }
@@ -164,13 +161,13 @@ void setup() {
   apagarLEDsLocales();
   pinMode(PIN_RCWL, INPUT);
 
-  delay(1500);  // tiempo para que abra el USB CDC del C3 SuperMini
+  delay(1500);
 
-  // Configuración Wi-Fi sin ahorro de energía y en Canal 1 fijo
+  // Configuración Wi-Fi STA en Canal 1
   WiFi.mode(WIFI_STA);
-  WiFi.disconnect();                    // no asociarse a ningún router (cambiaría el canal)
+  WiFi.disconnect();
   esp_wifi_set_ps(WIFI_PS_NONE);
-  WiFi.setTxPower(WIFI_POWER_8_5dBm);   // FIX C3 SuperMini: a potencia máxima la antena no transmite bien
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
 
   Serial.print("[CENTRAL] MAC Wi-Fi STA: ");
@@ -183,7 +180,6 @@ void setup() {
   esp_now_register_send_cb(OnDataSent);
   esp_now_register_recv_cb(OnDataRecv);
 
-  // Registrar Peer (Pod 1) obligatoriamente en Canal 1
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, macPod1, 6);
   peerInfo.channel = 1;
@@ -194,6 +190,7 @@ void setup() {
     Serial.printf("[CENTRAL] Error registrando Pod 1: %s\n", esp_err_to_name(r));
   }
 
+  // Configuración BLE
   BLEDevice::init("ACTIVELO_CENTRAL");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new ServerCallbacks());
@@ -212,7 +209,7 @@ void setup() {
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->start();
 
-  Serial.println("[CENTRAL] Puente BLE / ESP-NOW iniciado en Canal 1 (Power Save OFF).");
+  Serial.println("[CENTRAL] Puente BLE / ESP-NOW iniciado en Canal 1.");
 }
 
 void loop() {
@@ -221,7 +218,7 @@ void loop() {
     return;
   }
 
-  // Lectura del sensor RCWL local (Pod 0)
+  // 1. Control del sensor local del Pod 0
   if (esperandoSensorLocal && digitalRead(PIN_RCWL) == HIGH) {
     unsigned long reactionTime = millis() - startTimeLocal;
     esperandoSensorLocal = false;
@@ -239,6 +236,18 @@ void loop() {
     encenderLEDsLocales(pendingR, pendingG, pendingB);
     startTimeLocal = millis();
     esperandoSensorLocal = true;
+  }
+
+  // 2. Transmisión segura por BLE del tiempo de reacción del Pod 1
+  if (hayReaccionRemota) {
+    hayReaccionRemota = false;
+    if (pTxCharacteristic != NULL) {
+      String mensaje = "REACCION:" + String(reactionTimeRemoto);
+      pTxCharacteristic->setValue(mensaje.c_str());
+      pTxCharacteristic->notify();
+      Serial.print("[CENTRAL] Reacción de Pod 1 retransmitida a la App: ");
+      Serial.println(mensaje);
+    }
   }
 
   delay(1);
