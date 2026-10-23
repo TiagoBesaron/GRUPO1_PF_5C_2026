@@ -19,12 +19,12 @@
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 // MAC Wi-Fi STA del Pod Periférico 1 (Pod Target 1)[cite: 3]
-uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x87, 0x0F, 0xA4 };[cite: 3]
+uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x87, 0x0F, 0xA4 };
 
 // =========================================================================
 // ⚠️ REEMPLAZÁ ESTA MAC CON LA MAC WI-FI STA REAL DEL TERCER POD (POD 2)
 // =========================================================================
-uint8_t macPod2[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+uint8_t macPod2[] = { 0xB8, 0x1F, 0x3F, 0xE4, 0xF2, 0x3C };
 
 typedef struct struct_message {
   uint8_t podId;
