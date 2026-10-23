@@ -12,27 +12,36 @@ final soundServiceProvider = Provider<SoundService>((ref) {
 
 class SoundService {
   final Ref _ref;
-  final AudioPlayer _player = AudioPlayer();
 
   SoundService(this._ref);
 
-  Future<void> _playSound(String assetPath) async {
+  Future<void> _playSound(String fileName) async {
     final isEnabled = _ref.read(soundEnabledProvider);
     if (!isEnabled) return;
 
     try {
-      await _player.stop();
-      await _player.play(AssetSource(assetPath));
+      final player = AudioPlayer();
+
+      // Liberar recursos automáticamente cuando termina de sonar
+      player.onPlayerComplete.listen((_) {
+        player.dispose();
+      });
+
+      // AssetSource busca dentro del directorio assets/ configurado en pubspec.yaml
+      await player.play(
+        AssetSource('sounds/$fileName'),
+        mode: PlayerMode.lowLatency,
+      );
     } catch (e) {
-      debugPrint("Error al reproducir audio ($assetPath): $e");
+      debugPrint("Error al reproducir audio ($fileName): $e");
     }
   }
 
   Future<void> playStart() async {
-    await _playSound('sounds/inicio.mp3');
+    await _playSound('inicio.mp3');
   }
 
   Future<void> playFinish() async {
-    await _playSound('sounds/fin.mp3');
+    await _playSound('fin.mp3');
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../provider/bluetooth_provider.dart';
+import '../provider/sound_provider.dart';
 
 enum ModoEntrenamiento { rondas, tiempo, manual, bicolor }
 
@@ -90,7 +91,6 @@ class _ConfigEntrenamientoScreenState
   void _navegarAEntrenamiento() {
     final btState = ref.read(bluetoothProvider);
 
-    // Limpia cualquier advertencia previa existente
     ScaffoldMessenger.of(context).clearSnackBars();
 
     if (!btState.conectado) {
@@ -113,7 +113,6 @@ class _ConfigEntrenamientoScreenState
         ),
       );
 
-      // Cierre forzado exacto a los 3 segundos
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -135,7 +134,6 @@ class _ConfigEntrenamientoScreenState
         ),
       );
 
-      // Cierre forzado exacto a los 3 segundos
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -143,6 +141,9 @@ class _ConfigEntrenamientoScreenState
       });
       return;
     }
+
+    // ACTIVACIÓN DE AUDIO POR INTERACCIÓN DIRECTA DEL USUARIO (Habilita el permiso en PC)
+    ref.read(soundServiceProvider).playStart();
 
     List<int> rgbBase;
     if (_colorSeleccionado == 'Personalizado') {
@@ -297,7 +298,6 @@ class _ConfigEntrenamientoScreenState
             ),
             const SizedBox(height: 24),
 
-            // PARÁMETROS DEL MODO
             Text(
               _modo == ModoEntrenamiento.rondas || _modo == ModoEntrenamiento.bicolor
                   ? 'Parámetros de Rondas'
@@ -398,7 +398,6 @@ class _ConfigEntrenamientoScreenState
             ),
             const SizedBox(height: 24),
 
-            // SECCIÓN DE CONFIGURACIÓN BICOLOR
             if (_modo == ModoEntrenamiento.bicolor) ...[
               const Text(
                 'Tiempo Límite Color 2 (Distractor)',
@@ -468,7 +467,6 @@ class _ConfigEntrenamientoScreenState
               const SizedBox(height: 24),
             ],
 
-            // SECCIÓN DE INTERVALO / TIEMPO ENTRE PODS
             if (_modo != ModoEntrenamiento.manual) ...[
               const Text(
                 'Intervalo entre Pods',
@@ -538,7 +536,6 @@ class _ConfigEntrenamientoScreenState
               const SizedBox(height: 24),
             ],
 
-            // SECCIÓN DE COLOR
             Text(
               _modo == ModoEntrenamiento.bicolor ? 'Colores Bicolor' : 'Color de los LEDs',
               style: const TextStyle(
@@ -684,7 +681,6 @@ class _ConfigEntrenamientoScreenState
             ),
             const SizedBox(height: 24),
 
-            // SECCIÓN DE INTENSIDAD / BRILLO
             const Text(
               'Intensidad de los LEDs',
               style: TextStyle(
@@ -752,7 +748,6 @@ class _ConfigEntrenamientoScreenState
             ),
             const SizedBox(height: 32),
 
-            // BOTÓN INICIAR
             SizedBox(
               width: double.infinity,
               height: 54,

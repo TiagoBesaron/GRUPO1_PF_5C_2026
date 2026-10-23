@@ -60,7 +60,6 @@ class _EntrenamientoActivoScreenState
 
     if (modo == 'manual') {
       estadoTexto = "Tocá un cuadrado para encender su Pod";
-      ref.read(soundServiceProvider).playStart();
     } else {
       if (modo == 'tiempo') {
         tiempoRestanteSeg = tiempoLimiteSeg;
@@ -119,10 +118,6 @@ class _EntrenamientoActivoScreenState
     if ((modo == 'rondas' || modo == 'bicolor') && rondaActual >= rondasTotal) {
       finalizarEntrenamiento();
       return;
-    }
-
-    if (rondaActual == 0) {
-      ref.read(soundServiceProvider).playStart();
     }
 
     setState(() {
@@ -225,31 +220,24 @@ class _EntrenamientoActivoScreenState
         double.tryParse(ultimoTiempoStr.replaceAll(" s", "")) ?? 0.0;
     int podPrevio = podActivoActual;
 
+    _apagarPodActual();
+
     if (modo == 'bicolor') {
       if (esColor1Actual) {
         tiemposObtenidos.add(tiempoSeg);
         setState(() {
-          esperandoSensor = false;
-          ledEncendido = false;
-          podActivoActual = -1;
           estadoTexto =
               "¡Toque en Pod ${podPrevio + 1}! (${tiempoSeg.toStringAsFixed(3)} s)";
         });
       } else {
         cantidadErrores++;
         setState(() {
-          esperandoSensor = false;
-          ledEncendido = false;
-          podActivoActual = -1;
           estadoTexto = "¡Error! Tocaste el Color 2 en Pod ${podPrevio + 1}";
         });
       }
     } else {
       tiemposObtenidos.add(tiempoSeg);
       setState(() {
-        esperandoSensor = false;
-        ledEncendido = false;
-        podActivoActual = -1;
         estadoTexto =
             "¡Toque en Pod ${podPrevio + 1}! (${tiempoSeg.toStringAsFixed(3)} s)";
       });
@@ -416,7 +404,9 @@ class _EntrenamientoActivoScreenState
   Widget build(BuildContext context) {
     ref.listen<BluetoothState>(bluetoothProvider, (prev, next) {
       if (prev?.conectado == true && !next.conectado) {
-        _mostrarErrorDesconexion();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _mostrarErrorDesconexion();
+        });
         return;
       }
 
