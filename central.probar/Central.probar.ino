@@ -18,7 +18,7 @@
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
-// MAC REAL de Wi-Fi STA del Pod Periférico (Pod 1)
+// MAC Wi-Fi STA del Pod Periférico (Pod 1)
 uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x87, 0x0F, 0xA4 };
 
 typedef struct struct_message {
@@ -37,12 +37,13 @@ BLEServer *pServer = NULL;
 BLECharacteristic *pTxCharacteristic = NULL;
 bool appConectada = false;
 
+// Variables de estado local (Pod 0)
 bool esperandoSensorLocal = false;
 bool comandoPendienteLocal = false;
 uint8_t pendingR = 0, pendingG = 0, pendingB = 0;
 unsigned long startTimeLocal = 0;
 
-// Bandera para notificar la reacción remota de forma segura desde el loop()
+// Bandera para notificar tiempos del Pod 1 de forma segura desde el loop()
 volatile bool hayReaccionRemota = false;
 volatile uint32_t reactionTimeRemoto = 0;
 
@@ -81,23 +82,24 @@ void solicitarEncendidoLocal(uint8_t r, uint8_t g, uint8_t b) {
   }
 }
 
+// Confirmación de envío por ESP-NOW
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
 void OnDataSent(const wifi_tx_info_t *tx_info, esp_now_send_status_t status) {
 #else
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 #endif
-  Serial.print("[CENTRAL] Estado envío a Pod 1: ");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "ENTREGADO EXITOSO ✅" : "FALLÓ (Periférico no responde) ❌");
+  Serial.print("[CENTRAL] Estado envio a Pod 1: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "ENTREGADO EXITOSO ✅" : "FALLÓ ❌");
 }
 
-// Callback al recibir respuesta de reacción por ESP-NOW desde Pod 1
+// Callback de recepción ESP-NOW (Guarda el dato sin llamar a la pila BLE aquí adentro)
 void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
   if (len != sizeof(struct_message)) return;
   memcpy(&datosRecepcion, incomingData, sizeof(datosRecepcion));
 
   if (datosRecepcion.esReaccion) {
     reactionTimeRemoto = datosRecepcion.reactionTime;
-    hayReaccionRemota = true; // Guardamos el dato y activamos la bandera para el loop
+    hayReaccionRemota = true; // Activa la bandera para que el loop() envíe por BLE
   }
 }
 
@@ -136,7 +138,7 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
         if (podTarget == 0) {
           solicitarEncendidoLocal((uint8_t)r, (uint8_t)g, (uint8_t)b);
         } else if (podTarget == 1) {
-          // Envío directo por ESP-NOW (código original intacto)
+          // Envío directo por ESP-NOW al Pod 1
           datosEnvio.podId = 1;
           datosEnvio.r = r;
           datosEnvio.g = g;
@@ -161,7 +163,7 @@ void setup() {
 
   delay(1500);
 
-  // Configuración Wi-Fi original (Intacta)
+  // Configuración Wi-Fi STA en Canal 1
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
   esp_wifi_set_ps(WIFI_PS_NONE);
@@ -188,7 +190,7 @@ void setup() {
     Serial.printf("[CENTRAL] Error registrando Pod 1: %s\n", esp_err_to_name(r));
   }
 
-  // Inicialización BLE original (Intacta)
+  // Configuración BLE
   BLEDevice::init("ACTIVELO_CENTRAL");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new ServerCallbacks());
@@ -216,7 +218,7 @@ void loop() {
     return;
   }
 
-  // 1. Lectura del sensor RCWL local (Pod 0)
+  // 1. Control del sensor local del Pod 0
   if (esperandoSensorLocal && digitalRead(PIN_RCWL) == HIGH) {
     unsigned long reactionTime = millis() - startTimeLocal;
     esperandoSensorLocal = false;
@@ -236,14 +238,14 @@ void loop() {
     esperandoSensorLocal = true;
   }
 
-  // 2. Retransmisión a BLE de la reacción remota del Pod 1 (Hilo principal seguro)
+  // 2. Transmisión segura por BLE del tiempo de reacción del Pod 1
   if (hayReaccionRemota) {
     hayReaccionRemota = false;
     if (pTxCharacteristic != NULL) {
       String mensaje = "REACCION:" + String(reactionTimeRemoto);
       pTxCharacteristic->setValue(mensaje.c_str());
       pTxCharacteristic->notify();
-      Serial.print("[CENTRAL] Reacción de Pod 1 enviada a la App por BLE: ");
+      Serial.print("[CENTRAL] Reacción de Pod 1 retransmitida a la App: ");
       Serial.println(mensaje);
     }
   }
