@@ -42,7 +42,7 @@ bool comandoPendienteLocal = false;
 uint8_t pendingR = 0, pendingG = 0, pendingB = 0;
 unsigned long startTimeLocal = 0;
 
-// VARIABLES PARA MANEJO SEGURO DE REACCIÓN REMOTA (POD 1)
+// Bandera para notificar la reacción remota de forma segura desde el loop()
 volatile bool hayReaccionRemota = false;
 volatile uint32_t reactionTimeRemoto = 0;
 
@@ -86,23 +86,18 @@ void OnDataSent(const wifi_tx_info_t *tx_info, esp_now_send_status_t status) {
 #else
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 #endif
-  Serial.print("[CENTRAL] Estado envio a Pod 1: ");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "ENTREGADO EXITOSO ✅" : "FALLÓ (Periferico no responde) ❌");
+  Serial.print("[CENTRAL] Estado envío a Pod 1: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "ENTREGADO EXITOSO ✅" : "FALLÓ (Periférico no responde) ❌");
 }
 
-// Callback ESP-NOW: Solo guarda los datos recibidos, no llama funciones de BLE aquí
+// Callback al recibir respuesta de reacción por ESP-NOW desde Pod 1
 void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
-  if (len != sizeof(struct_message)) {
-    Serial.printf("[CENTRAL] Paquete ignorado: %d bytes (se esperaban %d)\n", len, (int)sizeof(struct_message));
-    return;
-  }
+  if (len != sizeof(struct_message)) return;
   memcpy(&datosRecepcion, incomingData, sizeof(datosRecepcion));
 
   if (datosRecepcion.esReaccion) {
     reactionTimeRemoto = datosRecepcion.reactionTime;
-    hayReaccionRemota = true; // Activa la bandera para procesar en el loop()
-    Serial.print("[CENTRAL] Reacción recibida por ESP-NOW del Pod ");
-    Serial.println(datosRecepcion.podId);
+    hayReaccionRemota = true; // Guardamos el dato y activamos la bandera para el loop
   }
 }
 
@@ -141,6 +136,7 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
         if (podTarget == 0) {
           solicitarEncendidoLocal((uint8_t)r, (uint8_t)g, (uint8_t)b);
         } else if (podTarget == 1) {
+          // Envío directo por ESP-NOW (código original intacto)
           datosEnvio.podId = 1;
           datosEnvio.r = r;
           datosEnvio.g = g;
@@ -165,6 +161,7 @@ void setup() {
 
   delay(1500);
 
+  // Configuración Wi-Fi original (Intacta)
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
   esp_wifi_set_ps(WIFI_PS_NONE);
@@ -191,6 +188,7 @@ void setup() {
     Serial.printf("[CENTRAL] Error registrando Pod 1: %s\n", esp_err_to_name(r));
   }
 
+  // Inicialización BLE original (Intacta)
   BLEDevice::init("ACTIVELO_CENTRAL");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new ServerCallbacks());
@@ -228,8 +226,6 @@ void loop() {
       String mensaje = "REACCION:" + String(reactionTime);
       pTxCharacteristic->setValue(mensaje.c_str());
       pTxCharacteristic->notify();
-      Serial.print("[CENTRAL] Reacción de Pod 0 enviada por BLE: ");
-      Serial.println(mensaje);
     }
   }
 
@@ -240,14 +236,14 @@ void loop() {
     esperandoSensorLocal = true;
   }
 
-  // 2. PROCESAMIENTO SEGURO DE REACCIÓN REMOTA (Pod 1)
+  // 2. Retransmisión a BLE de la reacción remota del Pod 1 (Hilo principal seguro)
   if (hayReaccionRemota) {
     hayReaccionRemota = false;
     if (pTxCharacteristic != NULL) {
       String mensaje = "REACCION:" + String(reactionTimeRemoto);
       pTxCharacteristic->setValue(mensaje.c_str());
       pTxCharacteristic->notify();
-      Serial.print("[CENTRAL] Reacción de Pod 1 retransmitida a la App por BLE: ");
+      Serial.print("[CENTRAL] Reacción de Pod 1 enviada a la App por BLE: ");
       Serial.println(mensaje);
     }
   }
