@@ -17,6 +17,7 @@ class ConfigEntrenamientoScreen extends ConsumerStatefulWidget {
 class _ConfigEntrenamientoScreenState
     extends ConsumerState<ConfigEntrenamientoScreen> {
   ModoEntrenamiento _modo = ModoEntrenamiento.rondas;
+  int _cantidadPods = 3; // Cantidad de Pods activos (1 a 4)
   int _rondas = 10;
   int _tiempoLimiteSeg = 30;
 
@@ -112,12 +113,6 @@ class _ConfigEntrenamientoScreenState
           ),
         ),
       );
-
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        }
-      });
       return;
     }
 
@@ -133,16 +128,9 @@ class _ConfigEntrenamientoScreenState
           duration: Duration(seconds: 3),
         ),
       );
-
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        }
-      });
       return;
     }
 
-    // ACTIVACIÓN DE AUDIO POR INTERACCIÓN DIRECTA DEL USUARIO (Habilita el permiso en PC)
     ref.read(soundServiceProvider).playStart();
 
     List<int> rgbBase;
@@ -161,6 +149,7 @@ class _ConfigEntrenamientoScreenState
 
     final config = {
       'modo': modoStr,
+      'cantidadPods': _cantidadPods,
       'rondasTotal': (_modo == ModoEntrenamiento.rondas || _modo == ModoEntrenamiento.bicolor) ? _rondas : 0,
       'tiempoLimiteSeg': _tiempoLimiteSeg,
       'colorAleatorio': _colorSeleccionado == 'Aleatorio',
@@ -249,6 +238,66 @@ class _ConfigEntrenamientoScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // SECCIÓN SELECCIÓN DE PODS
+            const Text(
+              'Cantidad de Pods Activos',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.sensors, color: Colors.blueAccent),
+                        SizedBox(width: 12),
+                        Text(
+                          'Pods a utilizar:',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    DropdownButton<int>(
+                      value: _cantidadPods,
+                      borderRadius: BorderRadius.circular(12),
+                      underline: const SizedBox(),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueAccent,
+                      ),
+                      items: [1, 2, 3, 4].map((numPods) {
+                        return DropdownMenuItem<int>(
+                          value: numPods,
+                          child: Text('$numPods Pod${numPods > 1 ? "s" : ""}'),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _cantidadPods = val);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // SECCIÓN MODO DE ENTRENAMIENTO
             const Text(
               'Selecciona el Modo',
               style: TextStyle(
