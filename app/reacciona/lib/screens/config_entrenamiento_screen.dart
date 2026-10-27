@@ -91,26 +91,38 @@ class _ConfigEntrenamientoScreenState
 
   void _navegarAEntrenamiento() {
     final btState = ref.read(bluetoothProvider);
+    final messenger = ScaffoldMessenger.of(context);
 
-    ScaffoldMessenger.of(context).clearSnackBars();
+    messenger.clearSnackBars();
 
     if (!btState.conectado) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
-          content: const Text(
-            'Debés conectar el ESP32 por Bluetooth antes de iniciar la rutina.',
+          content: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Debés conectar el ESP32 por Bluetooth antes de iniciar la rutina.',
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  messenger.hideCurrentSnackBar();
+                  context.push('/bluetooth');
+                },
+                child: const Text(
+                  'CONECTAR',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-          action: SnackBarAction(
-            label: 'CONECTAR',
-            textColor: Colors.white,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              context.push('/bluetooth');
-            },
-          ),
+          duration: const Duration(seconds: 2), // Duración exacta con animación suave
         ),
       );
       return;
@@ -118,14 +130,14 @@ class _ConfigEntrenamientoScreenState
 
     if (_modo == ModoEntrenamiento.bicolor &&
         _colorSeleccionado == _colorSeleccionado2) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text(
             'En el Modo Bicolor debés seleccionar dos colores distintos.',
           ),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 3),
+          duration: Duration(seconds: 2),
         ),
       );
       return;

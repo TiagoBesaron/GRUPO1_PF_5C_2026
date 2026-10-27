@@ -3,6 +3,7 @@
 3. Que en el modo manual si prendo uno no se tiene que apagar el anterior.
 4. Manual de usuario.
 5. Sonidos en la app.
+6. Que los usuarios ponga su propia info  y no la de todos. 
 6. Que no haya ningun error.
 7. Modo club.
 8. APP para el club.
