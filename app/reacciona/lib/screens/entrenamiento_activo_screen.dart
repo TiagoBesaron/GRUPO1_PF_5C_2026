@@ -24,6 +24,7 @@ class _EntrenamientoActivoScreenState
     extends ConsumerState<EntrenamientoActivoScreen> {
   int rondaActual = 0;
   late int rondasTotal;
+  late int cantidadPods;
   late int tiempoLimiteSeg;
   int tiempoRestanteSeg = 0;
   Timer? _timerTiempo;
@@ -55,6 +56,7 @@ class _EntrenamientoActivoScreenState
   void initState() {
     super.initState();
     modo = widget.config['modo'] ?? 'rondas';
+    cantidadPods = widget.config['cantidadPods'] ?? 3;
     rondasTotal = widget.config['rondasTotal'] ?? 10;
     tiempoLimiteSeg = widget.config['tiempoLimiteSeg'] ?? 30;
 
@@ -135,8 +137,8 @@ class _EntrenamientoActivoScreenState
 
     if (!mounted || sesionTerminada) return;
 
-    // AHORA SELECCIONA ALEATORIAMENTE ENTRE POD 0, POD 1 Y POD 2
-    int podAleatorio = Random().nextInt(3);
+    // SELECCIÓN ALEATORIA DINÁMICA SEGÚN LA CANTIDAD DE PODS ACTIVOS (0 a cantidadPods - 1)
+    int podAleatorio = Random().nextInt(cantidadPods);
     _encenderPod(podAleatorio);
   }
 
@@ -356,6 +358,7 @@ class _EntrenamientoActivoScreenState
                 await refBD.push().set({
                   "rondas": tiemposObtenidos.length,
                   "modo": modo,
+                  "cantidad_pods": cantidadPods,
                   "promedio_seg": promedio,
                   "tiempos": tiemposObtenidos,
                   "errores": cantidadErrores,
@@ -466,34 +469,20 @@ class _EntrenamientoActivoScreenState
               ],
 
               if (modo == 'manual') ...[
-                // VISTA MODO MANUAL CON PODS 1, 2 Y 3 EN UN WRAP ADAPTABLE
+                // VISTA MODO MANUAL DINÁMICA SEGÚN LA CANTIDAD DE PODS
                 Wrap(
                   alignment: WrapAlignment.center,
                   spacing: 12,
                   runSpacing: 12,
-                  children: [
-                    _buildPodSquare(
-                      podIndex: 0,
-                      label: "1",
-                      isActive: ledEncendido && podActivoActual == 0,
+                  children: List.generate(cantidadPods, (index) {
+                    return _buildPodSquare(
+                      podIndex: index,
+                      label: "${index + 1}",
+                      isActive: ledEncendido && podActivoActual == index,
                       activeColor: currentColor,
                       isDark: isDark,
-                    ),
-                    _buildPodSquare(
-                      podIndex: 1,
-                      label: "2",
-                      isActive: ledEncendido && podActivoActual == 1,
-                      activeColor: currentColor,
-                      isDark: isDark,
-                    ),
-                    _buildPodSquare(
-                      podIndex: 2,
-                      label: "3",
-                      isActive: ledEncendido && podActivoActual == 2,
-                      activeColor: currentColor,
-                      isDark: isDark,
-                    ),
-                  ],
+                    );
+                  }),
                 ),
               ] else ...[
                 Container(
