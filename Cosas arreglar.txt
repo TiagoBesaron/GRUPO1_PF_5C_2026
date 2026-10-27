@@ -1,9 +1,8 @@
-1. Que funcionen los 4 juntos
-2. Warning sobre que esta desconectado el ESP32.
-3. Que en el modo manual si prendo uno no se tiene que apagar el anterior.
-4. Manual de usuario.
-5. Sonidos en la app.
-6. Que los usuarios ponga su propia info  y no la de todos. 
-6. Que no haya ningun error.
+1. Que funcionen los 4 juntos (Probe 3 y  funcionaron, falta  una placa más y tenemos 4)
+2. Que en el modo manual si prendo uno, se tiene que apagar el anterior.
+3. Sonidos en la app.
+4. Que los usuarios ponga su propia info  y no la de todos. 
+5. Que no haya ningun error.
+6. Manual de usuario.
 7. Modo club.
 8. APP para el club.
