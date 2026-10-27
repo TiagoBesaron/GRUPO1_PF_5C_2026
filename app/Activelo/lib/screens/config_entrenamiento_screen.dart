@@ -338,7 +338,7 @@ class _ConfigEntrenamientoScreenState
                     Divider(height: 1),
                     RadioListTile<ModoEntrenamiento>(
                       title: Text('Por Tiempo'),
-                      subtitle: Text('Toca la mayor cantidad antes de que venza el tiempo'),
+                      subtitle: Text('Toca la mayor cantidad antes de que acabe el tiempo'),
                       value: ModoEntrenamiento.tiempo,
                     ),
                     Divider(height: 1),

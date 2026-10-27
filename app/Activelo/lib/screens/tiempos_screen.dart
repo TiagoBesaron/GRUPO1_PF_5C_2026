@@ -305,7 +305,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
                                   horizontal: 16, vertical: 8),
                               leading: CircleAvatar(
                                 backgroundColor:
-                                    _getModoColor(modoStr).withOpacity(0.15),
+                                    _getModoColor(modoStr).withValues(alpha: 0.15),
                                 child: Icon(
                                   Icons.timer_outlined,
                                   color: _getModoColor(modoStr),
@@ -326,7 +326,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
                                         horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: _getModoColor(modoStr)
-                                          .withOpacity(0.1),
+                                          .withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
@@ -466,7 +466,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
                                                 horizontal: 10, vertical: 6),
                                             decoration: BoxDecoration(
                                               color: esElMejor
-                                                  ? Colors.green.withOpacity(0.15)
+                                                  ? Colors.green.withValues(alpha: 0.15)
                                                   : (isDark
                                                       ? Colors.grey.shade800
                                                       : Colors.grey.shade200),
