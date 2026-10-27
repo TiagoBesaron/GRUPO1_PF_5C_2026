@@ -19,7 +19,7 @@
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 // MAC Wi-Fi STA de los Pods Periféricos
-uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x87, 0x0F, 0xA4 }; // Pod 2 App (podTarget 1)
+uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x84, 0x2A, 0x64 }; // Pod 2 App (podTarget 1)
 uint8_t macPod2[] = { 0xB8, 0x1F, 0x3F, 0xE4, 0xF2, 0x3C }; // Pod 3 App (podTarget 2)
 uint8_t macPod3[] = { 0x44, 0xBD, 0x8D, 0x5E, 0x0B, 0xBC }; // Pod 4 App (podTarget 3)
 
