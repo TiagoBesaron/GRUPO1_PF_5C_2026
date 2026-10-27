@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:file_picker/file_picker.dart';
 import '../provider/theme_provider.dart';
 import '../provider/user_mode_provider.dart';
 import '../provider/sound_provider.dart';
@@ -16,12 +17,60 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _vibracionHabilitada = true;
 
+  Future<void> _seleccionarAudioInicio() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.audio,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final path = result.files.single.path!;
+        await ref.read(customStartSoundProvider.notifier).setCustomSound(path);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Sonido de inicio actualizado'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error seleccionando archivo de audio: $e');
+    }
+  }
+
+  Future<void> _seleccionarAudioFin() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.audio,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final path = result.files.single.path!;
+        await ref.read(customFinishSoundProvider.notifier).setCustomSound(path);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Sonido de fin actualizado'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error seleccionando archivo de audio: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
     final isDarkMode = themeMode == ThemeMode.dark;
     final esModoProfesional = ref.watch(modoProfesionalProvider);
     final sonidoHabilitado = ref.watch(soundEnabledProvider);
+    final customStartPath = ref.watch(customStartSoundProvider);
+    final customFinishPath = ref.watch(customFinishSoundProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -122,6 +171,68 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ref.read(soundEnabledProvider.notifier).state = val;
                     },
                   ),
+                  if (sonidoHabilitado) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.play_circle_outline, color: Colors.blue),
+                      title: const Text('Sonido de Inicio'),
+                      subtitle: Text(
+                        customStartPath != null
+                            ? customStartPath.split('/').last
+                            : 'Predeterminado (inicio.mp3)',
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (customStartPath != null)
+                            IconButton(
+                              icon: const Icon(Icons.restore, color: Colors.orangeAccent),
+                              tooltip: 'Restablecer predeterminado',
+                              onPressed: () {
+                                ref
+                                    .read(customStartSoundProvider.notifier)
+                                    .setCustomSound(null);
+                              },
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.folder_open, color: Colors.blue),
+                            tooltip: 'Elegir archivo',
+                            onPressed: _seleccionarAudioInicio,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.stop_circle_outlined, color: Colors.blue),
+                      title: const Text('Sonido de Fin'),
+                      subtitle: Text(
+                        customFinishPath != null
+                            ? customFinishPath.split('/').last
+                            : 'Predeterminado (fin.mp3)',
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (customFinishPath != null)
+                            IconButton(
+                              icon: const Icon(Icons.restore, color: Colors.orangeAccent),
+                              tooltip: 'Restablecer predeterminado',
+                              onPressed: () {
+                                ref
+                                    .read(customFinishSoundProvider.notifier)
+                                    .setCustomSound(null);
+                              },
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.folder_open, color: Colors.blue),
+                            tooltip: 'Elegir archivo',
+                            onPressed: _seleccionarAudioFin,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const Divider(height: 1),
                   SwitchListTile(
                     secondary: const Icon(Icons.vibration, color: Colors.blue),

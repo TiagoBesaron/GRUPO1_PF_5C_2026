@@ -1,7 +1,6 @@
 1. Que funcionen los 4 juntos (Probe 3 y  funcionaron, falta  una placa más y tenemos 4)
 2. Que en el modo manual si prendo uno, se tiene que apagar el anterior.
 3. Sonidos en la app.
-4. Que los usuarios ponga su propia info  y no la de todos. 
 5. Que no haya ningun error.
 6. Manual de usuario.
 7. Modo club.

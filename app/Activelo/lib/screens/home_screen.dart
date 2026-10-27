@@ -30,19 +30,6 @@ class HomeScreen extends ConsumerWidget {
         : "principal";
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'LED Trainer',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/config-entrenamiento'),
-        icon: const Icon(Icons.play_arrow),
-        label: const Text('Entrenar'),
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),

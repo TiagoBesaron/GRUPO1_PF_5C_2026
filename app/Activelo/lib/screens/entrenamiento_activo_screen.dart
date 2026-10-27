@@ -27,8 +27,13 @@ class _EntrenamientoActivoScreenState
   late int cantidadPods;
   late int tiempoLimiteSeg;
   int tiempoRestanteSeg = 0;
+
   Timer? _timerTiempo;
   Timer? _timerDistractor;
+  Timer? _timerCuentaRegresiva;
+
+  int cuentaRegresiva = 3;
+  bool enCuentaRegresiva = false;
 
   late String modo;
   List<double> tiemposObtenidos = [];
@@ -62,14 +67,46 @@ class _EntrenamientoActivoScreenState
 
     if (modo == 'manual') {
       estadoTexto = "Tocá un cuadrado para encender su Pod";
+      enCuentaRegresiva = false;
     } else {
-      if (modo == 'tiempo') {
-        tiempoRestanteSeg = tiempoLimiteSeg;
-        _iniciarCronometro();
-      }
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => iniciarSiguienteRonda());
+      _iniciarCuentaRegresiva();
     }
+  }
+
+  void _iniciarCuentaRegresiva() {
+    setState(() {
+      enCuentaRegresiva = true;
+      cuentaRegresiva = 3;
+      estadoTexto = "¡Preparate!";
+    });
+
+    _timerCuentaRegresiva?.cancel();
+    _timerCuentaRegresiva =
+        Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || sesionTerminada) {
+        timer.cancel();
+        return;
+      }
+
+      if (cuentaRegresiva > 1) {
+        setState(() {
+          cuentaRegresiva--;
+        });
+      } else {
+        timer.cancel();
+        setState(() {
+          enCuentaRegresiva = false;
+        });
+
+        ref.read(soundServiceProvider).playStart();
+
+        if (modo == 'tiempo') {
+          tiempoRestanteSeg = tiempoLimiteSeg;
+          _iniciarCronometro();
+        }
+        iniciarSiguienteRonda();
+      }
+    });
   }
 
   void _iniciarCronometro() {
@@ -137,7 +174,6 @@ class _EntrenamientoActivoScreenState
 
     if (!mounted || sesionTerminada) return;
 
-    // SELECCIÓN ALEATORIA DINÁMICA SEGÚN LA CANTIDAD DE PODS ACTIVOS (0 a cantidadPods - 1)
     int podAleatorio = Random().nextInt(cantidadPods);
     _encenderPod(podAleatorio);
   }
@@ -146,8 +182,13 @@ class _EntrenamientoActivoScreenState
     if (sesionTerminada) return;
 
     if (ledEncendido && podActivoActual == podIndex) {
+      // Si se vuelve a tocar el Pod activo, se apaga
       _apagarPodActual();
     } else {
+      // Si ya hay un Pod encendido, se apaga primero para no tener 2 encendidos a la vez
+      if (ledEncendido) {
+        _apagarPodActual();
+      }
       _encenderPod(podIndex);
     }
   }
@@ -256,6 +297,7 @@ class _EntrenamientoActivoScreenState
   void _mostrarErrorDesconexion() {
     if (sesionTerminada || !mounted) return;
 
+    _timerCuentaRegresiva?.cancel();
     _timerTiempo?.cancel();
     _timerDistractor?.cancel();
     setState(() {
@@ -294,6 +336,7 @@ class _EntrenamientoActivoScreenState
 
   Future<void> finalizarEntrenamiento() async {
     if (sesionTerminada) return;
+    _timerCuentaRegresiva?.cancel();
     _timerTiempo?.cancel();
     _timerDistractor?.cancel();
     setState(() => sesionTerminada = true);
@@ -387,13 +430,17 @@ class _EntrenamientoActivoScreenState
 
   @override
   void dispose() {
+    _timerCuentaRegresiva?.cancel();
     _timerTiempo?.cancel();
     _timerDistractor?.cancel();
+    _apagarPodActual(); // Apagado automático de seguridad al salir
     super.dispose();
   }
 
   String _getTituloAppBar() {
-    if (modo == 'manual') {
+    if (enCuentaRegresiva) {
+      return "¡Aparato Listo!";
+    } else if (modo == 'manual') {
       return "Modo Manual (Toques: ${tiemposObtenidos.length})";
     } else if (modo == 'tiempo') {
       return "Tiempo: ${tiempoRestanteSeg}s | Toques: ${tiemposObtenidos.length}";
@@ -426,204 +473,241 @@ class _EntrenamientoActivoScreenState
     final perfilActivo = ref.watch(perfilActivoProvider);
     final esModoProfesional = ref.watch(modoProfesionalProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_getTituloAppBar()),
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (esModoProfesional) ...[
-                Chip(
-                  avatar: const Icon(Icons.person, size: 16),
-                  label: Text(
-                    perfilActivo?.nombre ?? "Perfil Principal",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          _timerCuentaRegresiva?.cancel();
+          _timerTiempo?.cancel();
+          _timerDistractor?.cancel();
+          _apagarPodActual(); // Apaga el Pod activo si el usuario vuelve atrás
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(_getTituloAppBar()),
+          centerTitle: true,
+          automaticallyImplyLeading: false,
+        ),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (esModoProfesional) ...[
+                  Chip(
+                    avatar: const Icon(Icons.person, size: 16),
+                    label: Text(
+                      perfilActivo?.nombre ?? "Perfil Principal",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    backgroundColor:
+                        isDark ? Colors.grey.shade800 : Colors.grey.shade200,
                   ),
-                  backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
-                ),
-                const SizedBox(height: 12),
-              ],
+                  const SizedBox(height: 12),
+                ],
 
-              if (modo == 'tiempo') ...[
-                Chip(
-                  avatar: const Icon(Icons.timer, color: Colors.white, size: 18),
-                  label: Text(
-                    "TIEMPO RESTANTE: ${tiempoRestanteSeg}s",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                if (modo == 'tiempo' && !enCuentaRegresiva) ...[
+                  Chip(
+                    avatar:
+                        const Icon(Icons.timer, color: Colors.white, size: 18),
+                    label: Text(
+                      "TIEMPO RESTANTE: ${tiempoRestanteSeg}s",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    backgroundColor: tiempoRestanteSeg <= 5
+                        ? Colors.redAccent
+                        : Colors.orange,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // SECCIÓN CENTRAL: CUENTA REGRESIVA O ILUMINACIÓN DE PODS
+                if (enCuentaRegresiva) ...[
+                  Container(
+                    width: 140,
+                    height: 140,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.orangeAccent.withOpacity(0.15),
+                      border: Border.all(color: Colors.orangeAccent, width: 4),
+                    ),
+                    child: Text(
+                      "$cuentaRegresiva",
+                      style: const TextStyle(
+                        fontSize: 72,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orangeAccent,
+                      ),
                     ),
                   ),
-                  backgroundColor:
-                      tiempoRestanteSeg <= 5 ? Colors.redAccent : Colors.orange,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                ] else if (modo == 'manual') ...[
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: List.generate(cantidadPods, (index) {
+                      return _buildPodSquare(
+                        podIndex: index,
+                        label: "${index + 1}",
+                        isActive: ledEncendido && podActivoActual == index,
+                        activeColor: currentColor,
+                        isDark: isDark,
+                      );
+                    }),
+                  ),
+                ] else ...[
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: ledEncendido ? currentColor : Colors.grey.shade300,
+                      boxShadow: ledEncendido
+                          ? [
+                              BoxShadow(
+                                color: currentColor.withOpacity(0.6),
+                                blurRadius: 20,
+                                spreadRadius: 5,
+                              )
+                            ]
+                          : [],
+                    ),
+                    child: Icon(
+                      ledEncendido ? Icons.lightbulb : Icons.lightbulb_outline,
+                      size: 60,
+                      color: ledEncendido ? Colors.white : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 24),
+
+                Text(
+                  estadoTexto,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: (modo == 'bicolor' && ledEncendido)
+                        ? (esColor1Actual ? Colors.green : Colors.redAccent)
+                        : null,
+                  ),
                 ),
                 const SizedBox(height: 16),
-              ],
 
-              if (modo == 'manual') ...[
-                // VISTA MODO MANUAL DINÁMICA SEGÚN LA CANTIDAD DE PODS
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: List.generate(cantidadPods, (index) {
-                    return _buildPodSquare(
-                      podIndex: index,
-                      label: "${index + 1}",
-                      isActive: ledEncendido && podActivoActual == index,
-                      activeColor: currentColor,
-                      isDark: isDark,
-                    );
-                  }),
-                ),
-              ] else ...[
                 Container(
-                  width: 120,
-                  height: 120,
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: ledEncendido ? currentColor : Colors.grey.shade300,
-                    boxShadow: ledEncendido
-                        ? [
-                            BoxShadow(
-                              color: currentColor.withValues(alpha: 0.6),
-                              blurRadius: 20,
-                              spreadRadius: 5,
-                            )
-                          ]
-                        : [],
-                  ),
-                  child: Icon(
-                    ledEncendido ? Icons.lightbulb : Icons.lightbulb_outline,
-                    size: 60,
-                    color: ledEncendido ? Colors.white : Colors.grey.shade600,
-                  ),
-                ),
-              ],
-
-              const SizedBox(height: 24),
-
-              Text(
-                estadoTexto,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: (modo == 'bicolor' && ledEncendido)
-                      ? (esColor1Actual ? Colors.green : Colors.redAccent)
-                      : null,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: Offset(0, 2),
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color:
+                          isDark ? Colors.grey.shade800 : Colors.grey.shade300,
                     ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      "ÚLTIMO TIEMPO VÁLIDO",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey,
-                        letterSpacing: 1.2,
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      tiemposObtenidos.isNotEmpty
-                          ? "${tiemposObtenidos.last.toStringAsFixed(3)} s"
-                          : "-- s",
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blueAccent,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Toques válidos: ${tiemposObtenidos.length}",
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
-                          ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        "ÚLTIMO TIEMPO VÁLIDO",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey,
+                          letterSpacing: 1.2,
                         ),
-                        if (modo == 'bicolor') ...[
-                          const SizedBox(width: 16),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        tiemposObtenidos.isNotEmpty
+                            ? "${tiemposObtenidos.last.toStringAsFixed(3)} s"
+                            : "-- s",
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueAccent,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Toques válidos: ${tiemposObtenidos.length}",
+                            style: TextStyle(
+                              fontSize: 13,
+                              color:
+                                  isDark ? Colors.grey[400] : Colors.grey[600],
                             ),
-                            child: Text(
-                              "Errores: $cantidadErrores",
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.redAccent,
+                          ),
+                          if (modo == 'bicolor') ...[
+                            const SizedBox(width: 16),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                "Errores: $cantidadErrores",
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.redAccent,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 32),
+                const SizedBox(height: 32),
 
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: finalizarEntrenamiento,
-                  icon: const Icon(Icons.stop_circle_outlined,
-                      color: Colors.redAccent),
-                  label: const Text(
-                    "FINALIZAR SESIÓN",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.redAccent,
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: OutlinedButton.icon(
+                    onPressed: finalizarEntrenamiento,
+                    icon: const Icon(Icons.stop_circle_outlined,
+                        color: Colors.redAccent),
+                    label: const Text(
+                      "FINALIZAR SESIÓN",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.redAccent,
+                      ),
                     ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.redAccent, width: 1.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(
+                          color: Colors.redAccent, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -660,7 +744,7 @@ class _EntrenamientoActivoScreenState
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: activeColor.withValues(alpha: 0.6),
+                      color: activeColor.withOpacity(0.6),
                       blurRadius: 18,
                       spreadRadius: 3,
                     ),
@@ -693,7 +777,7 @@ class _EntrenamientoActivoScreenState
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: isActive
-                      ? Colors.white.withValues(alpha: 0.9)
+                      ? Colors.white.withOpacity(0.9)
                       : (isDark ? Colors.grey[400] : Colors.grey[700]),
                 ),
               ),
