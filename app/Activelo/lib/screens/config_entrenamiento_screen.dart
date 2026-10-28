@@ -17,7 +17,7 @@ class ConfigEntrenamientoScreen extends ConsumerStatefulWidget {
 class _ConfigEntrenamientoScreenState
     extends ConsumerState<ConfigEntrenamientoScreen> {
   ModoEntrenamiento _modo = ModoEntrenamiento.rondas;
-  int _cantidadPods = 3; // Cantidad de Pods activos (1 a 4)
+  int _cantidadPods = 3; // Cantidad de Pods activos (1 a 6)
   int _rondas = 10;
   int _tiempoLimiteSeg = 30;
 
@@ -122,7 +122,7 @@ class _ConfigEntrenamientoScreenState
           ),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2), // Duración exacta con animación suave
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -291,7 +291,7 @@ class _ConfigEntrenamientoScreenState
                         fontWeight: FontWeight.bold,
                         color: Colors.blueAccent,
                       ),
-                      items: [1, 2, 3, 4].map((numPods) {
+                      items: [1, 2, 3, 4, 5, 6].map((numPods) {
                         return DropdownMenuItem<int>(
                           value: numPods,
                           child: Text('$numPods Pod${numPods > 1 ? "s" : ""}'),

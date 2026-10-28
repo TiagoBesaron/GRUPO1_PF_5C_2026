@@ -182,10 +182,8 @@ class _EntrenamientoActivoScreenState
     if (sesionTerminada) return;
 
     if (ledEncendido && podActivoActual == podIndex) {
-      // Si se vuelve a tocar el Pod activo, se apaga
       _apagarPodActual();
     } else {
-      // Si ya hay un Pod encendido, se apaga primero para no tener 2 encendidos a la vez
       if (ledEncendido) {
         _apagarPodActual();
       }
@@ -433,7 +431,7 @@ class _EntrenamientoActivoScreenState
     _timerCuentaRegresiva?.cancel();
     _timerTiempo?.cancel();
     _timerDistractor?.cancel();
-    _apagarPodActual(); // Apagado automático de seguridad al salir
+    _apagarPodActual();
     super.dispose();
   }
 
@@ -480,7 +478,7 @@ class _EntrenamientoActivoScreenState
           _timerCuentaRegresiva?.cancel();
           _timerTiempo?.cancel();
           _timerDistractor?.cancel();
-          _apagarPodActual(); // Apaga el Pod activo si el usuario vuelve atrás
+          _apagarPodActual();
         }
       },
       child: Scaffold(
@@ -551,8 +549,8 @@ class _EntrenamientoActivoScreenState
                 ] else if (modo == 'manual') ...[
                   Wrap(
                     alignment: WrapAlignment.center,
-                    spacing: 12,
-                    runSpacing: 12,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: List.generate(cantidadPods, (index) {
                       return _buildPodSquare(
                         podIndex: index,
@@ -725,28 +723,28 @@ class _EntrenamientoActivoScreenState
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _togglePodManual(podIndex),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 100,
-          height: 100,
+          width: 90,
+          height: 90,
           decoration: BoxDecoration(
             color: isActive
                 ? activeColor
                 : (isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade100),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isActive
                   ? activeColor
                   : (isDark ? Colors.grey.shade700 : Colors.black),
-              width: 3,
+              width: 2.5,
             ),
             boxShadow: isActive
                 ? [
                     BoxShadow(
                       color: activeColor.withValues(alpha: 0.6),
-                      blurRadius: 18,
-                      spreadRadius: 3,
+                      blurRadius: 16,
+                      spreadRadius: 2,
                     ),
                   ]
                 : [
@@ -763,7 +761,7 @@ class _EntrenamientoActivoScreenState
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 32,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: isActive
                       ? Colors.white
@@ -774,7 +772,7 @@ class _EntrenamientoActivoScreenState
               Text(
                 isActive ? "ENCENDIDO" : "POD ${podIndex + 1}",
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: isActive
                       ? Colors.white.withValues(alpha: 0.9)

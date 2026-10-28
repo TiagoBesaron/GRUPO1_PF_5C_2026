@@ -18,14 +18,19 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _vibracionHabilitada = true;
 
-  String _getNombreArchivo(String? path) {
-    if (path == null || path.isEmpty) return 'Predeterminado (inicio.mp3)';
+  String _getNombreArchivo(String? path, String defaultName, List<SoundItem> library) {
+    if (path == null || path.isEmpty) return 'Predeterminado ($defaultName)';
+    final match = library.where((item) => item.path == path);
+    if (match.isNotEmpty) return match.first.name;
     if (path.contains('/')) return path.split('/').last;
     if (path.contains('\\')) return path.split('\\').last;
     return path;
   }
 
-  Future<void> _seleccionarAudioInicio() async {
+  Future<void> _agregarYSeleccionarAudio({
+    required String defaultFileName,
+    required Function(String?) onSelected,
+  }) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.audio,
@@ -37,14 +42,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         final String? pathElegido = file.path ?? (kIsWeb ? file.name : null);
 
         if (pathElegido != null) {
-          await ref.read(customStartSoundProvider.notifier).setCustomSound(pathElegido);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Sonido de inicio guardado: ${file.name}'),
-                duration: const Duration(seconds: 2),
-              ),
-            );
+          final nuevoSonido = await ref
+              .read(customSoundsLibraryProvider.notifier)
+              .agregarSonido(file.name, pathElegido);
+
+          if (nuevoSonido != null) {
+            onSelected(nuevoSonido.path);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Sonido agregado: ${file.name}'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
           }
         }
       }
@@ -53,32 +64,124 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _seleccionarAudioFin() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.audio,
-        allowMultiple: false,
-      );
+  void _mostrarSelectorSonido({
+    required BuildContext context,
+    required String titulo,
+    required String defaultFileName,
+    required String? currentPath,
+    required Function(String?) onSelected,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (modalContext) {
+        return Consumer(
+          builder: (context, ref, child) {
+            final library = ref.watch(customSoundsLibraryProvider);
 
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        final String? pathElegido = file.path ?? (kIsWeb ? file.name : null);
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20.0, vertical: 8.0),
+                      child: Text(
+                        titulo,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const Divider(),
 
-        if (pathElegido != null) {
-          await ref.read(customFinishSoundProvider.notifier).setCustomSound(pathElegido);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Sonido de fin guardado: ${file.name}'),
-                duration: const Duration(seconds: 2),
+                    // Opción 1: Predeterminado
+                    RadioListTile<String?>(
+                      title: Text('Predeterminado ($defaultFileName)'),
+                      subtitle: const Text('Sonido original de la app'),
+                      value: null,
+                      groupValue: currentPath,
+                      onChanged: (val) {
+                        onSelected(val);
+                        Navigator.pop(modalContext);
+                      },
+                      secondary: IconButton(
+                        icon: const Icon(Icons.play_circle_fill,
+                            color: Colors.blue),
+                        onPressed: () {
+                          ref
+                              .read(soundServiceProvider)
+                              .playPreview(null, defaultFileName);
+                        },
+                      ),
+                    ),
+
+                    // Opción 2...N: Sonidos agregados por el usuario
+                    ...library.map((sound) {
+                      return RadioListTile<String?>(
+                        title: Text(sound.name),
+                        subtitle: Text(
+                          sound.path,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        value: sound.path,
+                        groupValue: currentPath,
+                        onChanged: (val) {
+                          onSelected(val);
+                          Navigator.pop(modalContext);
+                        },
+                        secondary: IconButton(
+                          icon: const Icon(Icons.play_circle_fill,
+                              color: Colors.blue),
+                          onPressed: () {
+                            ref
+                                .read(soundServiceProvider)
+                                .playPreview(sound.path, defaultFileName);
+                          },
+                        ),
+                      );
+                    }),
+
+                    const Divider(),
+
+                    // Botón para agregar nuevo sonido
+                    ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.blueAccent,
+                        child: Icon(Icons.add, color: Colors.white),
+                      ),
+                      title: const Text(
+                        'Agregar nuevo sonido',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueAccent,
+                        ),
+                      ),
+                      subtitle: const Text('Seleccionar archivo (.mp3, .wav)'),
+                      onTap: () async {
+                        Navigator.pop(modalContext);
+                        await _agregarYSeleccionarAudio(
+                          defaultFileName: defaultFileName,
+                          onSelected: onSelected,
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             );
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error seleccionando archivo de audio: $e');
-    }
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -87,8 +190,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final isDarkMode = themeMode == ThemeMode.dark;
     final esModoProfesional = ref.watch(modoProfesionalProvider);
     final sonidoHabilitado = ref.watch(soundEnabledProvider);
-    final customStartPath = ref.watch(customStartSoundProvider);
-    final customFinishPath = ref.watch(customFinishSoundProvider);
+
+    final selectedStartPath = ref.watch(selectedStartSoundProvider);
+    final selectedFinishPath = ref.watch(selectedFinishSoundProvider);
+    final soundLibrary = ref.watch(customSoundsLibraryProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -179,7 +284,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   SwitchListTile(
                     secondary: const Icon(Icons.volume_up, color: Colors.blue),
                     title: const Text('Efectos de Sonido'),
-                    subtitle: const Text('Reproducir sonidos al iniciar y finalizar la rutina'),
+                    subtitle: const Text(
+                        'Reproducir sonidos al iniciar y finalizar la rutina'),
                     value: sonidoHabilitado,
                     activeThumbColor: Colors.blue,
                     onChanged: (val) {
@@ -190,73 +296,72 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const Divider(height: 1),
                     ListTile(
                       leading: IconButton(
-                        icon: const Icon(Icons.play_circle_fill, color: Colors.blue),
+                        icon: const Icon(Icons.play_circle_fill,
+                            color: Colors.blue),
                         tooltip: 'Probar sonido',
                         onPressed: () {
                           ref.read(soundServiceProvider).playStart();
                         },
                       ),
                       title: const Text('Sonido de Inicio'),
-                      subtitle: Text(_getNombreArchivo(customStartPath)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (customStartPath != null)
-                            IconButton(
-                              icon: const Icon(Icons.restore, color: Colors.orangeAccent),
-                              tooltip: 'Restablecer predeterminado',
-                              onPressed: () {
-                                ref
-                                    .read(customStartSoundProvider.notifier)
-                                    .setCustomSound(null);
-                              },
-                            ),
-                          IconButton(
-                            icon: const Icon(Icons.folder_open, color: Colors.blue),
-                            tooltip: 'Elegir archivo',
-                            onPressed: _seleccionarAudioInicio,
-                          ),
-                        ],
-                      ),
+                      subtitle: Text(_getNombreArchivo(
+                        selectedStartPath,
+                        'inicio.mp3',
+                        soundLibrary,
+                      )),
+                      trailing: const Icon(Icons.folder_open, color: Colors.blue),
+                      onTap: () {
+                        _mostrarSelectorSonido(
+                          context: context,
+                          titulo: 'Seleccionar Sonido de Inicio',
+                          defaultFileName: 'inicio.mp3',
+                          currentPath: selectedStartPath,
+                          onSelected: (path) {
+                            ref
+                                .read(selectedStartSoundProvider.notifier)
+                                .setSelectedSound(path);
+                          },
+                        );
+                      },
                     ),
                     const Divider(height: 1),
                     ListTile(
                       leading: IconButton(
-                        icon: const Icon(Icons.play_circle_fill, color: Colors.blue),
+                        icon: const Icon(Icons.play_circle_fill,
+                            color: Colors.blue),
                         tooltip: 'Probar sonido',
                         onPressed: () {
                           ref.read(soundServiceProvider).playFinish();
                         },
                       ),
                       title: const Text('Sonido de Fin'),
-                      subtitle: Text(_getNombreArchivo(customFinishPath)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (customFinishPath != null)
-                            IconButton(
-                              icon: const Icon(Icons.restore, color: Colors.orangeAccent),
-                              tooltip: 'Restablecer predeterminado',
-                              onPressed: () {
-                                ref
-                                    .read(customFinishSoundProvider.notifier)
-                                    .setCustomSound(null);
-                              },
-                            ),
-                          IconButton(
-                            icon: const Icon(Icons.folder_open, color: Colors.blue),
-                            tooltip: 'Elegir archivo',
-                            onPressed: _seleccionarAudioFin,
-                          ),
-                        ],
-                      ),
+                      subtitle: Text(_getNombreArchivo(
+                        selectedFinishPath,
+                        'fin.mp3',
+                        soundLibrary,
+                      )),
+                      trailing: const Icon(Icons.folder_open, color: Colors.blue),
+                      onTap: () {
+                        _mostrarSelectorSonido(
+                          context: context,
+                          titulo: 'Seleccionar Sonido de Fin',
+                          defaultFileName: 'fin.mp3',
+                          currentPath: selectedFinishPath,
+                          onSelected: (path) {
+                            ref
+                                .read(selectedFinishSoundProvider.notifier)
+                                .setSelectedSound(path);
+                          },
+                        );
+                      },
                     ),
                   ],
                   const Divider(height: 1),
                   SwitchListTile(
                     secondary: const Icon(Icons.vibration, color: Colors.blue),
                     title: const Text('Vibración Háptica'),
-                    subtitle: const Text('Vibración en el teléfono al registrar toques'),
+                    subtitle:
+                        const Text('Vibración en el teléfono al registrar toques'),
                     value: _vibracionHabilitada,
                     activeThumbColor: Colors.blue,
                     onChanged: (val) {
@@ -284,7 +389,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const Icon(Icons.person_outline, color: Colors.blue),
+                    leading:
+                        const Icon(Icons.person_outline, color: Colors.blue),
                     title: const Text('Editar Perfil'),
                     subtitle: const Text('Actualiza tu información personal'),
                     trailing: const Icon(Icons.chevron_right),
@@ -292,7 +398,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const Divider(height: 1),
                   ListTile(
-                    leading: const Icon(Icons.bluetooth_searching, color: Colors.blue),
+                    leading: const Icon(Icons.bluetooth_searching,
+                        color: Colors.blue),
                     title: const Text('Dispositivos Bluetooth'),
                     subtitle: const Text('Administrar conexiones y escaneo'),
                     trailing: const Icon(Icons.chevron_right),
@@ -325,7 +432,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const Divider(height: 1),
                   ListTile(
-                    leading: const Icon(Icons.privacy_tip_outlined, color: Colors.blue),
+                    leading: const Icon(Icons.privacy_tip_outlined,
+                        color: Colors.blue),
                     title: const Text('Términos y Privacidad'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/terminos-privacidad'),

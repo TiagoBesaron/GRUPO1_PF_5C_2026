@@ -103,12 +103,20 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // LOGO UNIFICADO Y MÁS GRANDE (140px)
+                    // LOGO RECORTADO Y ESCALADO (Desecha los bordes internos del PNG)
                     Center(
-                      child: Image.asset(
-                        'assets/logo.png',
+                      child: SizedBox(
+                        width: 140,
                         height: 140,
-                        fit: BoxFit.contain,
+                        child: ClipOval(
+                          child: Transform.scale(
+                            scale: 1.32,
+                            child: Image.asset(
+                              'assets/logo.png',
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
