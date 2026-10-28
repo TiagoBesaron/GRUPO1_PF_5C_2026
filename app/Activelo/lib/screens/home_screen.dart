@@ -24,12 +24,21 @@ class HomeScreen extends ConsumerWidget {
     final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // ID del perfil seleccionado actualmente
     final activePerfilId = esModoProfesional
         ? (perfilActivo?.id ?? "principal")
         : "principal";
 
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/config-entrenamiento'),
+        icon: const Icon(Icons.play_arrow),
+        label: const Text(
+          'Entrenar',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.white,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
@@ -56,7 +65,6 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
 
-              // TARJETA DE USUARIO SELECCIONADO (SOLO EN MODO PROFESIONAL)
               if (esModoProfesional) ...[
                 Material(
                   color: isDark ? const Color(0xFF1E293B) : Colors.blue.shade50,
@@ -109,7 +117,6 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
               ],
 
-              // Tarjeta Estado Bluetooth
               Material(
                 color: cardColor,
                 borderRadius: BorderRadius.circular(12),
@@ -177,7 +184,6 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
-              // Estadísticas filtradas EXCLUSIVAMENTE por el usuario activo
               StreamBuilder<DatabaseEvent>(
                 stream: user != null
                     ? FirebaseDatabase.instance
@@ -203,12 +209,15 @@ class HomeScreen extends ConsumerWidget {
                         if (value is Map) {
                           final perfilIdBD = value['perfil_id'] ?? 'principal';
                           
-                          // Filtrar solo las sesiones del usuario activo
                           if (!esModoProfesional || perfilIdBD == activePerfilId) {
                             final tiemposRaw = value['tiempos'];
                             List<double> tiempos = [];
                             if (tiemposRaw is List) {
                               tiempos = tiemposRaw.map((t) => (t as num).toDouble()).toList();
+                            } else if (tiemposRaw is Map) {
+                              tiemposRaw.forEach((k, v) {
+                                if (v is num) tiempos.add(v.toDouble());
+                              });
                             }
 
                             sesionesUsuario.add({
@@ -222,11 +231,9 @@ class HomeScreen extends ConsumerWidget {
                       });
 
                       if (sesionesUsuario.isNotEmpty) {
-                        // Ordenar de más reciente a más antigua
                         sesionesUsuario.sort((a, b) =>
                             (b['timestamp'] as num).compareTo(a['timestamp'] as num));
 
-                        // Datos de la última sesión específica de este usuario
                         final ultimaSesion = sesionesUsuario.first;
                         tieneUltimaSesion = true;
                         final List<double> tiemposUltima = ultimaSesion['tiempos'];
@@ -238,7 +245,6 @@ class HomeScreen extends ConsumerWidget {
                         }
                         ultimoSeg = ultimaSesion['promedio_seg'];
 
-                        // Cálculo global del usuario activo en todas sus sesiones
                         List<double> todosLosTiempos = [];
                         double sumaPromedios = 0.0;
 
@@ -385,30 +391,6 @@ class HomeScreen extends ConsumerWidget {
                   );
                 },
               ),
-              const SizedBox(height: 16),
-
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () => context.push('/config-entrenamiento'),
-                  icon: const Icon(Icons.play_arrow, size: 20),
-                  label: const Text(
-                    "COMENZAR ENTRENAMIENTO",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                  ),
-                ),
-              ),
               const SizedBox(height: 24),
 
               const Text(
@@ -439,7 +421,7 @@ class HomeScreen extends ConsumerWidget {
                 title: "Ver historial de tiempos",
                 onTap: () => context.push('/tiempos'),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 80),
             ],
           ),
         ),

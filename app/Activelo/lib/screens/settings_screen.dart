@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import '../provider/theme_provider.dart';
 import '../provider/user_mode_provider.dart';
 import '../provider/sound_provider.dart';
@@ -17,22 +18,34 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _vibracionHabilitada = true;
 
+  String _getNombreArchivo(String? path) {
+    if (path == null || path.isEmpty) return 'Predeterminado (inicio.mp3)';
+    if (path.contains('/')) return path.split('/').last;
+    if (path.contains('\\')) return path.split('\\').last;
+    return path;
+  }
+
   Future<void> _seleccionarAudioInicio() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.audio,
+        allowMultiple: false,
       );
 
-      if (result != null && result.files.single.path != null) {
-        final path = result.files.single.path!;
-        await ref.read(customStartSoundProvider.notifier).setCustomSound(path);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Sonido de inicio actualizado'),
-              duration: Duration(seconds: 2),
-            ),
-          );
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final String? pathElegido = file.path ?? (kIsWeb ? file.name : null);
+
+        if (pathElegido != null) {
+          await ref.read(customStartSoundProvider.notifier).setCustomSound(pathElegido);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Sonido de inicio guardado: ${file.name}'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -44,18 +57,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.audio,
+        allowMultiple: false,
       );
 
-      if (result != null && result.files.single.path != null) {
-        final path = result.files.single.path!;
-        await ref.read(customFinishSoundProvider.notifier).setCustomSound(path);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Sonido de fin actualizado'),
-              duration: Duration(seconds: 2),
-            ),
-          );
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final String? pathElegido = file.path ?? (kIsWeb ? file.name : null);
+
+        if (pathElegido != null) {
+          await ref.read(customFinishSoundProvider.notifier).setCustomSound(pathElegido);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Sonido de fin guardado: ${file.name}'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -82,7 +100,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Sección Modo de Uso
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
@@ -111,7 +128,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Sección Apariencia
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
@@ -145,7 +161,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Sección Audio y Retroalimentación
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
@@ -174,13 +189,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   if (sonidoHabilitado) ...[
                     const Divider(height: 1),
                     ListTile(
-                      leading: const Icon(Icons.play_circle_outline, color: Colors.blue),
-                      title: const Text('Sonido de Inicio'),
-                      subtitle: Text(
-                        customStartPath != null
-                            ? customStartPath.split('/').last
-                            : 'Predeterminado (inicio.mp3)',
+                      leading: IconButton(
+                        icon: const Icon(Icons.play_circle_fill, color: Colors.blue),
+                        tooltip: 'Probar sonido',
+                        onPressed: () {
+                          ref.read(soundServiceProvider).playStart();
+                        },
                       ),
+                      title: const Text('Sonido de Inicio'),
+                      subtitle: Text(_getNombreArchivo(customStartPath)),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -204,13 +221,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     const Divider(height: 1),
                     ListTile(
-                      leading: const Icon(Icons.stop_circle_outlined, color: Colors.blue),
-                      title: const Text('Sonido de Fin'),
-                      subtitle: Text(
-                        customFinishPath != null
-                            ? customFinishPath.split('/').last
-                            : 'Predeterminado (fin.mp3)',
+                      leading: IconButton(
+                        icon: const Icon(Icons.play_circle_fill, color: Colors.blue),
+                        tooltip: 'Probar sonido',
+                        onPressed: () {
+                          ref.read(soundServiceProvider).playFinish();
+                        },
                       ),
+                      title: const Text('Sonido de Fin'),
+                      subtitle: Text(_getNombreArchivo(customFinishPath)),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -249,7 +268,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Sección Cuenta y Perfil
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
@@ -285,7 +303,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Sección Información
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
@@ -318,7 +335,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 28),
 
-            // Botón Cerrar Sesión
             SizedBox(
               width: double.infinity,
               height: 50,

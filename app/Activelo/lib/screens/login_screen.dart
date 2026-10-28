@@ -103,13 +103,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // LOGO / TÍTULO DE ACTIVELO
-                    const Icon(
-                      Icons.bolt,
-                      size: 72,
-                      color: Colors.blueAccent,
+                    // LOGO UNIFICADO Y MÁS GRANDE (140px)
+                    Center(
+                      child: Image.asset(
+                        'assets/logo.png',
+                        height: 140,
+                        fit: BoxFit.contain,
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
                     const Text(
                       'ACTIVELO',
                       textAlign: TextAlign.center,
@@ -162,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _submit(), // Envío con tecla Enter
+                      onFieldSubmitted: (_) => _submit(),
                       decoration: InputDecoration(
                         labelText: 'Contraseña',
                         prefixIcon: const Icon(Icons.lock_outline),

@@ -536,7 +536,7 @@ class _EntrenamientoActivoScreenState
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.orangeAccent.withOpacity(0.15),
+                      color: Colors.orangeAccent.withValues(alpha: 0.15),
                       border: Border.all(color: Colors.orangeAccent, width: 4),
                     ),
                     child: Text(
@@ -573,7 +573,7 @@ class _EntrenamientoActivoScreenState
                       boxShadow: ledEncendido
                           ? [
                               BoxShadow(
-                                color: currentColor.withOpacity(0.6),
+                                color: currentColor.withValues(alpha: 0.6),
                                 blurRadius: 20,
                                 spreadRadius: 5,
                               )
@@ -662,7 +662,7 @@ class _EntrenamientoActivoScreenState
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.redAccent.withOpacity(0.15),
+                                color: Colors.redAccent.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -744,7 +744,7 @@ class _EntrenamientoActivoScreenState
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: activeColor.withOpacity(0.6),
+                      color: activeColor.withValues(alpha: 0.6),
                       blurRadius: 18,
                       spreadRadius: 3,
                     ),
@@ -777,7 +777,7 @@ class _EntrenamientoActivoScreenState
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: isActive
-                      ? Colors.white.withOpacity(0.9)
+                      ? Colors.white.withValues(alpha: 0.9)
                       : (isDark ? Colors.grey[400] : Colors.grey[700]),
                 ),
               ),
