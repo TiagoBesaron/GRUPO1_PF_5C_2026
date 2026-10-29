@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:file_picker/file_picker.dart';
 import '../provider/perfil_provider.dart';
 
 class GestionarPerfilesScreen extends ConsumerStatefulWidget {
@@ -14,72 +16,209 @@ class GestionarPerfilesScreen extends ConsumerStatefulWidget {
 
 class _GestionarPerfilesScreenState
     extends ConsumerState<GestionarPerfilesScreen> {
-  void _mostrarDialogoNuevoPerfil(
-      [String? id, String? nombreActual, String? notasActuales]) {
+
+  Future<String?> _seleccionarFotoBase64() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.bytes != null) {
+          final base64Str = base64Encode(file.bytes!);
+          final ext = file.name.contains('.')
+              ? file.name.split('.').last.toLowerCase()
+              : 'jpg';
+          final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+          return 'data:$mime;base64,$base64Str';
+        }
+      }
+    } catch (e) {
+      debugPrint('Error al seleccionar imagen: $e');
+    }
+    return null;
+  }
+
+  void _mostrarDialogoNuevoPerfil([
+    String? id,
+    String? nombreActual,
+    String? notasActuales,
+    String? photoUrlActual,
+  ]) {
     final nombreController = TextEditingController(text: nombreActual ?? '');
     final notasController = TextEditingController(text: notasActuales ?? '');
     final user = FirebaseAuth.instance.currentUser;
+    String? fotoTemporal = photoUrlActual;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(id == null ? 'Nuevo Usuario' : 'Editar Usuario'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nombreController,
-              decoration: const InputDecoration(
-                labelText: 'Nombre Completo',
-                prefixIcon: Icon(Icons.person_outline),
-                border: OutlineInputBorder(),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final avatarImg = _obtenerImagen(fotoTemporal);
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: notasController,
-              decoration: const InputDecoration(
-                labelText: 'Notas / Observaciones',
-                prefixIcon: Icon(Icons.notes),
-                border: OutlineInputBorder(),
+              title: Text(
+                id == null ? 'Nuevo Usuario' : 'Editar Usuario',
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCELAR'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final nombre = nombreController.text.trim();
-              final notas = notasController.text.trim();
-              if (nombre.isEmpty || user == null) return;
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // AVATAR CON BOTÓN DE SUBIR FOTO
+                    GestureDetector(
+                      onTap: () async {
+                        final foto = await _seleccionarFotoBase64();
+                        if (foto != null) {
+                          setDialogState(() {
+                            fotoTemporal = foto;
+                          });
+                        }
+                      },
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          CircleAvatar(
+                            radius: 42,
+                            backgroundColor: Colors.blue.shade100,
+                            backgroundImage: avatarImg,
+                            child: avatarImg == null
+                                ? const Icon(
+                                    Icons.person,
+                                    size: 48,
+                                    color: Colors.blueAccent,
+                                  )
+                                : null,
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: Colors.blueAccent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
 
-              final ref = FirebaseDatabase.instance
-                  .ref('usuarios/${user.uid}/perfiles');
+                    // BOTÓN SUBIR FOTO
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final foto = await _seleccionarFotoBase64();
+                        if (foto != null) {
+                          setDialogState(() {
+                            fotoTemporal = foto;
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.upload_file, size: 18),
+                      label: Text(
+                        fotoTemporal == null ? 'Subir foto' : 'Cambiar foto',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blueAccent,
+                        side: const BorderSide(color: Colors.blueAccent),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-              if (id == null) {
-                await ref.push().set({
-                  'nombre': nombre,
-                  'notas': notas,
-                  'created_at': ServerValue.timestamp,
-                });
-              } else {
-                await ref.child(id).update({
-                  'nombre': nombre,
-                  'notas': notas,
-                });
-              }
+                    // CAMPO NOMBRE
+                    TextField(
+                      controller: nombreController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre Completo',
+                        prefixIcon: Icon(Icons.person_outline),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
 
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('GUARDAR'),
-          ),
-        ],
-      ),
+                    // CAMPO NOTAS
+                    TextField(
+                      controller: notasController,
+                      decoration: const InputDecoration(
+                        labelText: 'Notas / Observaciones',
+                        prefixIcon: Icon(Icons.notes),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('CANCELAR'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () async {
+                    final nombre = nombreController.text.trim();
+                    final notas = notasController.text.trim();
+                    if (nombre.isEmpty || user == null) return;
+
+                    final ref = FirebaseDatabase.instance
+                        .ref('usuarios/${user.uid}/perfiles');
+
+                    if (id == null) {
+                      await ref.push().set({
+                        'nombre': nombre,
+                        'notas': notas,
+                        'photoUrl': fotoTemporal,
+                        'created_at': ServerValue.timestamp,
+                      });
+                    } else {
+                      await ref.child(id).update({
+                        'nombre': nombre,
+                        'notas': notas,
+                        'photoUrl': fotoTemporal,
+                      });
+                    }
+
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  child: const Text('GUARDAR'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+  }
+
+  ImageProvider? _obtenerImagen(String? photoUrl) {
+    if (photoUrl == null || photoUrl.isEmpty) return null;
+    if (photoUrl.startsWith('data:image')) {
+      try {
+        final base64Str = photoUrl.split(',').last;
+        return MemoryImage(base64Decode(base64Str));
+      } catch (_) {
+        return null;
+      }
+    }
+    return NetworkImage(photoUrl);
   }
 
   Map<String, dynamic> _calcularMetricasUsuario(
@@ -104,6 +243,10 @@ class _GestionarPerfilesScreenState
           if (listTiemposRaw is List) {
             tiempos =
                 listTiemposRaw.map((t) => (t as num).toDouble()).toList();
+          } else if (listTiemposRaw is Map) {
+            listTiemposRaw.forEach((k, v) {
+              if (v is num) tiempos.add(v.toDouble());
+            });
           }
 
           sesionesUsuario.add({
@@ -124,7 +267,6 @@ class _GestionarPerfilesScreenState
       };
     }
 
-    // Ordenar de más reciente a más antigua
     sesionesUsuario.sort((a, b) =>
         (b['timestamp'] as num).compareTo(a['timestamp'] as num));
 
@@ -271,6 +413,8 @@ class _GestionarPerfilesScreenState
         centerTitle: true,
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: Colors.blueAccent,
+        foregroundColor: Colors.white,
         onPressed: () => _mostrarDialogoNuevoPerfil(),
         icon: const Icon(Icons.person_add),
         label: const Text('Agregar'),
@@ -279,45 +423,82 @@ class _GestionarPerfilesScreenState
           ? const Center(child: Text('Iniciá sesión para gestionar perfiles.'))
           : StreamBuilder<DatabaseEvent>(
               stream: FirebaseDatabase.instance
-                  .ref('usuarios/${user.uid}/sesiones')
+                  .ref('usuarios/${user.uid}')
                   .onValue,
-              builder: (context, snapshotSesiones) {
-                final Map<dynamic, dynamic>? rawSesiones =
-                    snapshotSesiones.hasData &&
-                            snapshotSesiones.data!.snapshot.value != null
-                        ? snapshotSesiones.data!.snapshot.value
-                            as Map<dynamic, dynamic>
-                        : null;
-
+              builder: (context, snapshotUserData) {
                 return StreamBuilder<DatabaseEvent>(
                   stream: FirebaseDatabase.instance
-                      .ref('usuarios/${user.uid}/perfiles')
+                      .ref('usuarios/${user.uid}/sesiones')
                       .onValue,
-                  builder: (context, snapshotPerfiles) {
-                    if (snapshotPerfiles.connectionState ==
+                  builder: (context, snapshotSesiones) {
+                    if (snapshotUserData.connectionState ==
                         ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    final List<Map<String, dynamic>> perfiles = [];
+                    final Map<dynamic, dynamic>? rawSesiones =
+                        snapshotSesiones.hasData &&
+                                snapshotSesiones.data!.snapshot.value != null
+                            ? snapshotSesiones.data!.snapshot.value
+                                as Map<dynamic, dynamic>
+                            : null;
 
-                    if (snapshotPerfiles.hasData &&
-                        snapshotPerfiles.data!.snapshot.value != null) {
-                      final raw = snapshotPerfiles.data!.snapshot.value
-                          as Map<dynamic, dynamic>;
-                      raw.forEach((key, value) {
-                        if (value is Map) {
-                          perfiles.add({
-                            'id': key,
-                            'nombre': value['nombre'] ?? 'Sin nombre',
-                            'notas': value['notas'] ?? '',
+                    String nombrePrincipal =
+                        user.displayName?.trim().isNotEmpty == true
+                            ? user.displayName!
+                            : 'Perfil Principal (Propietario)';
+                    String? photoUrlPrincipal = user.photoURL;
+
+                    final List<Map<String, dynamic>> perfilesSecundarios = [];
+
+                    if (snapshotUserData.hasData &&
+                        snapshotUserData.data!.snapshot.value != null) {
+                      final rawData = snapshotUserData.data!.snapshot.value;
+                      if (rawData is Map) {
+                        final userData = Map<String, dynamic>.from(rawData);
+                        if (userData['nombre'] != null &&
+                            (userData['nombre'] as String).trim().isNotEmpty) {
+                          nombrePrincipal = userData['nombre'].toString().trim();
+                        }
+                        if (userData['photoUrl'] != null &&
+                            (userData['photoUrl'] as String).isNotEmpty) {
+                          photoUrlPrincipal = userData['photoUrl'].toString();
+                        }
+
+                        if (userData['perfiles'] is Map) {
+                          final perfilesMap =
+                              Map<String, dynamic>.from(userData['perfiles']);
+                          perfilesMap.forEach((key, value) {
+                            if (value is Map) {
+                              perfilesSecundarios.add({
+                                'id': key,
+                                'nombre': value['nombre'] ?? 'Sin nombre',
+                                'notas': value['notas'] ?? '',
+                                'photoUrl': value['photoUrl'],
+                              });
+                            }
                           });
                         }
-                      });
+                      }
                     }
 
-                    final statsPrincipal =
-                        _calcularMetricasUsuario(rawSesiones, 'principal');
+                    // Lista unificada: Perfil Principal + Perfiles Creados
+                    final todosLosPerfiles = [
+                      {
+                        'id': 'principal',
+                        'esPrincipal': true,
+                        'nombre': nombrePrincipal,
+                        'notas': 'Cuenta Principal',
+                        'photoUrl': photoUrlPrincipal,
+                      },
+                      ...perfilesSecundarios.map((p) => {
+                            'id': p['id'],
+                            'esPrincipal': false,
+                            'nombre': p['nombre'],
+                            'notas': p['notas'],
+                            'photoUrl': p['photoUrl'],
+                          }),
+                    ];
 
                     return Column(
                       children: [
@@ -346,145 +527,119 @@ class _GestionarPerfilesScreenState
                             ],
                           ),
                         ),
-                        Card(
-                          margin: const EdgeInsets.all(12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: perfilActivo == null
-                                  ? Colors.blueAccent
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: perfilActivo == null
-                                      ? Colors.blueAccent
-                                      : Colors.grey.shade400,
-                                  child: const Icon(Icons.person,
-                                      color: Colors.white),
-                                ),
-                                title: const Text(
-                                  'Perfil Principal (Propietario)',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                subtitle: const Text(
-                                    'Sin usuario asignado explícitamente'),
-                                trailing: perfilActivo == null
-                                    ? const Icon(Icons.check_circle,
-                                        color: Colors.green)
-                                    : null,
-                                onTap: () {
-                                  ref
-                                      .read(perfilActivoProvider.notifier)
-                                      .deseleccionar();
-                                  Navigator.pop(context);
-                                },
-                              ),
-                              _buildGridMetricas(statsPrincipal, isDark),
-                            ],
-                          ),
-                        ),
-                        const Divider(height: 1),
                         Expanded(
-                          child: perfiles.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    'Aún no cargaste usuarios.\nTocá en "Agregar" para crear uno.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 6),
-                                  itemCount: perfiles.length,
-                                  itemBuilder: (context, index) {
-                                    final item = perfiles[index];
-                                    final esSeleccionado =
-                                        perfilActivo?.id == item['id'];
-                                    final statsItem = _calcularMetricasUsuario(
-                                        rawSesiones, item['id']);
+                          child: ListView.builder(
+                            padding: const EdgeInsets.only(
+                              left: 12,
+                              right: 12,
+                              top: 12,
+                              bottom: 80,
+                            ),
+                            itemCount: todosLosPerfiles.length,
+                            itemBuilder: (context, index) {
+                              final item = todosLosPerfiles[index];
+                              final bool esPrincipal =
+                                  item['esPrincipal'] as bool;
+                              final String id = item['id'] as String;
+                              final String nombre = item['nombre'] as String;
+                              final String notas = item['notas'] as String;
+                              final String? photoUrl = item['photoUrl'] as String?;
 
-                                    return Card(
-                                      margin: const EdgeInsets.only(bottom: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                        side: BorderSide(
-                                          color: esSeleccionado
-                                              ? Colors.blueAccent
-                                              : Colors.transparent,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          ListTile(
-                                            leading: CircleAvatar(
-                                              backgroundColor: esSeleccionado
-                                                  ? Colors.blueAccent
-                                                  : Colors.blue.shade100,
-                                              child: Text(
-                                                item['nombre'][0]
-                                                    .toUpperCase(),
+                              final bool esSeleccionado = esPrincipal
+                                  ? perfilActivo == null
+                                  : perfilActivo?.id == id;
+
+                              final statsItem =
+                                  _calcularMetricasUsuario(rawSesiones, id);
+                              final avatarImg = _obtenerImagen(photoUrl);
+
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(
+                                    color: esSeleccionado
+                                        ? Colors.blueAccent
+                                        : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: esSeleccionado
+                                            ? Colors.blueAccent
+                                            : Colors.blue.shade100,
+                                        backgroundImage: avatarImg,
+                                        child: avatarImg == null
+                                            ? Text(
+                                                nombre.isNotEmpty
+                                                    ? nombre[0].toUpperCase()
+                                                    : 'U',
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.bold,
                                                   color: esSeleccionado
                                                       ? Colors.white
                                                       : Colors.blue.shade900,
                                                 ),
+                                              )
+                                            : null,
+                                      ),
+                                      title: Text(
+                                        nombre,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      subtitle: Text(
+                                        esPrincipal
+                                            ? 'Perfil Principal (Propietario)'
+                                            : (notas.isNotEmpty ? notas : 'Usuario registrado'),
+                                      ),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (!esPrincipal)
+                                            IconButton(
+                                              icon: const Icon(
+                                                  Icons.edit_outlined,
+                                                  size: 20),
+                                              onPressed: () =>
+                                                  _mostrarDialogoNuevoPerfil(
+                                                id,
+                                                nombre,
+                                                notas,
+                                                photoUrl,
                                               ),
                                             ),
-                                            title: Text(
-                                              item['nombre'],
-                                              style: const TextStyle(
-                                                  fontWeight:
-                                                      FontWeight.bold),
-                                            ),
-                                            subtitle: item['notas'].isNotEmpty
-                                                ? Text(item['notas'])
-                                                : null,
-                                            trailing: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                IconButton(
-                                                  icon: const Icon(
-                                                      Icons.edit_outlined,
-                                                      size: 20),
-                                                  onPressed: () =>
-                                                      _mostrarDialogoNuevoPerfil(
-                                                    item['id'],
-                                                    item['nombre'],
-                                                    item['notas'],
-                                                  ),
-                                                ),
-                                                if (esSeleccionado)
-                                                  const Icon(Icons.check_circle,
-                                                      color: Colors.green),
-                                              ],
-                                            ),
-                                            onTap: () {
-                                              ref
-                                                  .read(perfilActivoProvider
-                                                      .notifier)
-                                                  .seleccionarPerfil(
-                                                    item['id'],
-                                                    item['nombre'],
-                                                    notas: item['notas'],
-                                                  );
-                                              Navigator.pop(context);
-                                            },
-                                          ),
-                                          _buildGridMetricas(statsItem, isDark),
+                                          if (esSeleccionado)
+                                            const Icon(Icons.check_circle,
+                                                color: Colors.green),
                                         ],
                                       ),
-                                    );
-                                  },
+                                      onTap: () {
+                                        if (esPrincipal) {
+                                          ref
+                                              .read(perfilActivoProvider.notifier)
+                                              .deseleccionar();
+                                        } else {
+                                          ref
+                                              .read(perfilActivoProvider.notifier)
+                                              .seleccionarPerfil(
+                                                id,
+                                                nombre,
+                                                notas: notas,
+                                              );
+                                        }
+                                        Navigator.pop(context);
+                                      },
+                                    ),
+                                    _buildGridMetricas(statsItem, isDark),
+                                  ],
                                 ),
+                              );
+                            },
+                          ),
                         ),
                       ],
                     );

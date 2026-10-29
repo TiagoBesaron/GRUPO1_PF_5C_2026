@@ -1,6 +1,9 @@
 1. Que funcionen los 4 juntos (Probe 3 y  funcionaron, falta  una placa más y tenemos 4)
-2. Que en el modo manual si prendo uno, se tiene que apagar el anterior.
+2. Fotos en el  inicio de cada usuario. 
 3. Sonidos en la app.
+4. Poder eliminar usuarios y fotos
+5. Que si me equivoco la contraseña me diga email/contraseña incorrecta.
+6. Que confirme la contraseña al registrarse.
 5. Que no haya ningun error.
 6. Manual de usuario.
 7. Modo club.

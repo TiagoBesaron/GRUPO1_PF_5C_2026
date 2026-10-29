@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -123,7 +124,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
                     const Divider(),
-
                     RadioGroup<String?>(
                       groupValue: currentPath,
                       onChanged: (val) {
@@ -147,7 +147,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               },
                             ),
                           ),
-
                           ...library.map((sound) {
                             return RadioListTile<String?>(
                               title: Text(sound.name),
@@ -173,9 +172,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ],
                       ),
                     ),
-
                     const Divider(),
-
                     ListTile(
                       leading: const CircleAvatar(
                         backgroundColor: Colors.blueAccent,
@@ -229,6 +226,158 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ENCABEZADO PERFIL ESTILO FACEBOOK
+            if (currentUser != null)
+              StreamBuilder<DatabaseEvent>(
+                stream: FirebaseDatabase.instance
+                    .ref('usuarios/${currentUser.uid}')
+                    .onValue,
+                builder: (context, snapshot) {
+                  String nombre = currentUser.displayName?.isNotEmpty == true
+                      ? currentUser.displayName!
+                      : 'Usuario';
+                  String email = currentUser.email ?? '';
+                  String? photoUrl = currentUser.photoURL;
+
+                  if (snapshot.hasData && snapshot.data?.snapshot.value != null) {
+                    final rawData = snapshot.data!.snapshot.value;
+                    if (rawData is Map) {
+                      final userData = Map<String, dynamic>.from(rawData);
+                      if (userData['nombre'] != null &&
+                          (userData['nombre'] as String).trim().isNotEmpty) {
+                        nombre = userData['nombre'].toString().trim();
+                      }
+                      if (userData['photoUrl'] != null &&
+                          (userData['photoUrl'] as String).isNotEmpty) {
+                        photoUrl = userData['photoUrl'].toString();
+                      }
+                    }
+                  }
+
+                  ImageProvider? avatarImage;
+                  if (photoUrl != null && photoUrl.isNotEmpty) {
+                    if (photoUrl.startsWith('data:image')) {
+                      try {
+                        final base64Str = photoUrl.split(',').last;
+                        avatarImage = MemoryImage(base64Decode(base64Str));
+                      } catch (_) {}
+                    } else {
+                      avatarImage = NetworkImage(photoUrl);
+                    }
+                  }
+
+                  return Card(
+                    elevation: 3,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              height: 100,
+                              width: double.infinity,
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Colors.blueAccent, Color(0xFF1565C0)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: -35,
+                              left: 20,
+                              child: Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).cardColor,
+                                  shape: BoxShape.circle,
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 6,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: CircleAvatar(
+                                  radius: 36,
+                                  backgroundColor: Colors.blue.shade100,
+                                  backgroundImage: avatarImage,
+                                  child: avatarImage == null
+                                      ? const Icon(Icons.person,
+                                          size: 42, color: Colors.blueAccent)
+                                      : null,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 40),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      nombre,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      email,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isDarkMode
+                                            ? Colors.grey[400]
+                                            : Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.blueAccent),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.edit,
+                                    size: 16, color: Colors.blueAccent),
+                                label: const Text(
+                                  'Editar',
+                                  style: TextStyle(
+                                      color: Colors.blueAccent,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                onPressed: () => context.push('/edit-profile'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+            // BANNER DE CUMPLEAÑOS
             if (currentUser != null)
               StreamBuilder<DatabaseEvent>(
                 stream: FirebaseDatabase.instance
@@ -248,7 +397,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                   if (!esCumple) return const SizedBox.shrink();
 
-                  final String nombreBD = (userData['nombre'] as String?)?.trim() ?? '';
+                  final String nombreBD =
+                      (userData['nombre'] as String?)?.trim() ?? '';
                   final String nombre = nombreBD.isNotEmpty
                       ? nombreBD
                       : (currentUser.displayName?.trim().isNotEmpty == true
@@ -256,7 +406,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           : 'Usuario');
 
                   return Card(
-                    color: isDarkMode ? const Color(0xFF3E2723) : const Color(0xFFFFF8E1),
+                    color: isDarkMode
+                        ? const Color(0xFF3E2723)
+                        : const Color(0xFFFFF8E1),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                       side: const BorderSide(color: Colors.amber, width: 2),
