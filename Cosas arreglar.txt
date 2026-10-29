@@ -4,7 +4,6 @@
 4. Poder eliminar usuarios y fotos
 5. Que si me equivoco la contraseña me diga email/contraseña incorrecta.
 6. Que confirme la contraseña al registrarse.
-5. Que no haya ningun error.
-6. Manual de usuario.
-7. Modo club.
-8. APP para el club.
+7. Que no haya ningun error.
+8. Manual de usuario.
+9. APP para el club.
