@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:file_picker/file_picker.dart';
 import '../provider/theme_provider.dart';
 import '../provider/user_mode_provider.dart';
@@ -25,6 +26,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return path;
   }
 
+  bool _esCumpleanosHoy(String? fechaIsoStr) {
+    if (fechaIsoStr == null || fechaIsoStr.isEmpty) return false;
+    try {
+      final fechaNac = DateTime.parse(fechaIsoStr);
+      final hoy = DateTime.now();
+      return fechaNac.day == hoy.day && fechaNac.month == hoy.month;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _agregarYSeleccionarAudio({
     required String defaultFileName,
     required Function(String?) onSelected,
@@ -34,7 +46,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         type: FileType.custom,
         allowedExtensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg'],
         allowMultiple: false,
-        withData: true, // Requerido para capturar los bytes en Web
+        withData: true,
       );
 
       if (result != null && result.files.isNotEmpty) {
@@ -62,7 +74,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('No se pudo procesar el archivo de audio.'),
+                content: Text('Archivo no válido o supera el peso máximo (3MB).'),
                 backgroundColor: Colors.redAccent,
               ),
             );
@@ -112,59 +124,58 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     const Divider(),
 
-                    // Predeterminado
-                    RadioListTile<String?>(
-                      title: Text('Predeterminado ($defaultFileName)'),
-                      subtitle: const Text('Sonido original de la app'),
-                      value: null,
+                    RadioGroup<String?>(
                       groupValue: currentPath,
                       onChanged: (val) {
                         onSelected(val);
                         Navigator.pop(modalContext);
                       },
-                      secondary: IconButton(
-                        icon: const Icon(Icons.play_circle_fill,
-                            color: Colors.blue),
-                        onPressed: () {
-                          ref
-                              .read(soundServiceProvider)
-                              .playPreview(null, defaultFileName);
-                        },
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          RadioListTile<String?>(
+                            title: Text('Predeterminado ($defaultFileName)'),
+                            subtitle: const Text('Sonido original de la app'),
+                            value: null,
+                            secondary: IconButton(
+                              icon: const Icon(Icons.play_circle_fill,
+                                  color: Colors.blue),
+                              onPressed: () {
+                                ref
+                                    .read(soundServiceProvider)
+                                    .playPreview(null, defaultFileName);
+                              },
+                            ),
+                          ),
+
+                          ...library.map((sound) {
+                            return RadioListTile<String?>(
+                              title: Text(sound.name),
+                              subtitle: Text(
+                                sound.path.startsWith('data:')
+                                    ? 'Archivo guardado en memoria'
+                                    : sound.path,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              value: sound.path,
+                              secondary: IconButton(
+                                icon: const Icon(Icons.play_circle_fill,
+                                    color: Colors.blue),
+                                onPressed: () {
+                                  ref
+                                      .read(soundServiceProvider)
+                                      .playPreview(sound.path, defaultFileName);
+                                },
+                              ),
+                            );
+                          }),
+                        ],
                       ),
                     ),
 
-                    // Lista de sonidos agregados
-                    ...library.map((sound) {
-                      return RadioListTile<String?>(
-                        title: Text(sound.name),
-                        subtitle: Text(
-                          sound.path.startsWith('data:')
-                              ? 'Archivo guardado en memoria'
-                              : sound.path,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        value: sound.path,
-                        groupValue: currentPath,
-                        onChanged: (val) {
-                          onSelected(val);
-                          Navigator.pop(modalContext);
-                        },
-                        secondary: IconButton(
-                          icon: const Icon(Icons.play_circle_fill,
-                              color: Colors.blue),
-                          onPressed: () {
-                            ref
-                                .read(soundServiceProvider)
-                                .playPreview(sound.path, defaultFileName);
-                          },
-                        ),
-                      );
-                    }),
-
                     const Divider(),
 
-                    // Botón agregar
                     ListTile(
                       leading: const CircleAvatar(
                         backgroundColor: Colors.blueAccent,
@@ -206,6 +217,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final selectedStartPath = ref.watch(selectedStartSoundProvider);
     final selectedFinishPath = ref.watch(selectedFinishSoundProvider);
     final soundLibrary = ref.watch(customSoundsLibraryProvider);
+    final currentUser = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
       appBar: AppBar(
@@ -217,6 +229,79 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (currentUser != null)
+              StreamBuilder<DatabaseEvent>(
+                stream: FirebaseDatabase.instance
+                    .ref('usuarios/${currentUser.uid}')
+                    .onValue,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || snapshot.data?.snapshot.value == null) {
+                    return const SizedBox.shrink();
+                  }
+
+                  final rawData = snapshot.data!.snapshot.value;
+                  if (rawData is! Map) return const SizedBox.shrink();
+
+                  final userData = Map<String, dynamic>.from(rawData);
+                  final fechaIsoStr = userData['fecha_nacimiento'] as String?;
+                  final esCumple = _esCumpleanosHoy(fechaIsoStr);
+
+                  if (!esCumple) return const SizedBox.shrink();
+
+                  final String nombreBD = (userData['nombre'] as String?)?.trim() ?? '';
+                  final String nombre = nombreBD.isNotEmpty
+                      ? nombreBD
+                      : (currentUser.displayName?.trim().isNotEmpty == true
+                          ? currentUser.displayName!
+                          : 'Usuario');
+
+                  return Card(
+                    color: isDarkMode ? const Color(0xFF3E2723) : const Color(0xFFFFF8E1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: const BorderSide(color: Colors.amber, width: 2),
+                    ),
+                    margin: const EdgeInsets.only(bottom: 20),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          const Text('🎉', style: TextStyle(fontSize: 36)),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '¡Feliz Cumpleaños, $nombre! 🎂',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDarkMode
+                                        ? Colors.amber.shade200
+                                        : Colors.amber.shade900,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '¡Todo el equipo de Activelo te desea un excelente día de entrenamiento!',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isDarkMode
+                                        ? Colors.grey.shade300
+                                        : Colors.grey.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(

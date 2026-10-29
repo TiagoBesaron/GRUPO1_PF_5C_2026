@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:go_router/go_router.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -11,24 +12,70 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nombreController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  DateTime? _fechaNacimiento;
   bool _isRegistering = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  Future<void> _seleccionarFechaNacimiento() async {
+    final now = DateTime.now();
+    final fecha = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 20),
+      firstDate: DateTime(1900),
+      lastDate: now,
+      locale: const Locale('es', 'ES'),
+      helpText: 'SELECCIONÁ TU FECHA DE NACIMIENTO',
+      cancelText: 'CANCELAR',
+      confirmText: 'ACEPTAR',
+    );
+
+    if (fecha != null) {
+      setState(() {
+        _fechaNacimiento = fecha;
+      });
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_isRegistering && _fechaNacimiento == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, seleccioná tu fecha de nacimiento.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
       if (_isRegistering) {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        final userCredential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
+
+        final user = userCredential.user;
+        if (user != null) {
+          final nombre = _nombreController.text.trim();
+          await user.updateDisplayName(nombre);
+
+          final ref = FirebaseDatabase.instance.ref('usuarios/${user.uid}');
+          await ref.update({
+            'nombre': nombre,
+            'fecha_nacimiento': _fechaNacimiento!.toIso8601String(),
+          });
+        }
       } else {
         await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: _emailController.text.trim(),
@@ -81,6 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _nombreController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -103,7 +151,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // LOGO RECORTADO Y ESCALADO (Desecha los bordes internos del PNG)
                     Center(
                       child: SizedBox(
                         width: 140,
@@ -141,9 +188,55 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: isDark ? Colors.grey[400] : Colors.grey[600],
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
 
-                    // CAMPO EMAIL
+                    if (_isRegistering) ...[
+                      TextFormField(
+                        controller: _nombreController,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          labelText: 'Nombre Completo',
+                          prefixIcon: const Icon(Icons.person_outline),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (_isRegistering && (value == null || value.trim().isEmpty)) {
+                            return 'Ingresá tu nombre completo';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      InkWell(
+                        onTap: _seleccionarFechaNacimiento,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Fecha de Nacimiento',
+                            prefixIcon: const Icon(Icons.cake_outlined),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            _fechaNacimiento != null
+                                ? "${_fechaNacimiento!.day.toString().padLeft(2, '0')}/${_fechaNacimiento!.month.toString().padLeft(2, '0')}/${_fechaNacimiento!.year}"
+                                : 'Seleccionar fecha',
+                            style: TextStyle(
+                              color: _fechaNacimiento != null
+                                  ? (isDark ? Colors.white : Colors.black87)
+                                  : Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -167,7 +260,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // CAMPO CONTRASEÑA
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -204,7 +296,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // BOTÓN PRINCIPAL
                     SizedBox(
                       height: 52,
                       child: ElevatedButton(
@@ -238,7 +329,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // ENLACE A TÉRMINOS Y PRIVACIDAD
                     Wrap(
                       alignment: WrapAlignment.center,
                       crossAxisAlignment: WrapCrossAlignment.center,
@@ -268,7 +358,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // TOGGLE LOGIN / REGISTRO
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

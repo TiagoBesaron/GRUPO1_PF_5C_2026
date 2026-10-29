@@ -65,23 +65,34 @@ class CustomSoundsLibraryNotifier extends StateNotifier<List<SoundItem>> {
     Uint8List? bytes,
   }) async {
     try {
+      // Control de tamaño máximo (3MB) para prevenir saturación de memoria
+      if (bytes != null && bytes.lengthInBytes > 3 * 1024 * 1024) {
+        debugPrint("El archivo supera el límite de 3MB.");
+        return null;
+      }
+
       final prefs = await SharedPreferences.getInstance();
       String finalPath = '';
 
       if (kIsWeb) {
-        // En Web creamos un Data URI Base64 para reproducción inmediata
+        // En Web procesamos Data URI con MIME Type dinámico
         if (bytes != null) {
           final base64Str = base64Encode(bytes);
-          final ext = name.split('.').last.toLowerCase();
-          final mime = ext == 'wav' ? 'audio/wav' : 'audio/mp3';
+          final ext = name.contains('.') ? name.split('.').last.toLowerCase() : 'mp3';
+          String mime = 'audio/mp3';
+          if (ext == 'wav') {
+            mime = 'audio/wav';
+          } else if (ext == 'ogg') mime = 'audio/ogg';
+          else if (ext == 'm4a' || ext == 'aac') mime = 'audio/mp4';
+
           finalPath = 'data:$mime;base64,$base64Str';
-        } else if (path != null && path.startsWith('data:')) {
+        } else if (path != null && (path.startsWith('data:') || path.startsWith('blob:') || path.startsWith('http'))) {
           finalPath = path;
         } else {
           return null;
         }
       } else {
-        // En Android / iOS guardamos el archivo en disco local
+        // En Android / iOS copiado físico a disco interno de la app
         final appDocDir = await getApplicationDocumentsDirectory();
         final soundsFolder = Directory('${appDocDir.path}/custom_sounds');
         if (!await soundsFolder.exists()) {
@@ -177,28 +188,31 @@ class SoundService {
 
   SoundService(this._ref);
 
-  AudioPlayer _getAudioPlayer() {
-    _player ??= AudioPlayer();
-    return _player!;
-  }
-
   Future<void> _playSound(String defaultFileName, String? customFilePath) async {
     final isEnabled = _ref.read(soundEnabledProvider);
     if (!isEnabled) return;
 
-    final player = _getAudioPlayer();
-
     try {
-      await player.stop();
+      // Limpieza preventiva de reproduciones activas anteriores
+      final oldPlayer = _player;
+      _player = null;
+      if (oldPlayer != null) {
+        try {
+          await oldPlayer.stop();
+          await oldPlayer.dispose();
+        } catch (_) {}
+      }
+
+      final player = AudioPlayer();
+      _player = player;
 
       if (customFilePath != null && customFilePath.isNotEmpty) {
-        if (customFilePath.startsWith('data:audio') || customFilePath.startsWith('http')) {
-          // Reproducción en Web / Data URI
+        if (kIsWeb || customFilePath.startsWith('data:') || customFilePath.startsWith('blob:') || customFilePath.startsWith('http')) {
           await player.play(UrlSource(customFilePath));
           return;
-        } else if (!kIsWeb) {
-          // Reproducción en Android / Dispositivo Físico
-          if (await File(customFilePath).exists()) {
+        } else {
+          final file = File(customFilePath);
+          if (await file.exists()) {
             await player.play(DeviceFileSource(customFilePath));
             return;
           }
@@ -207,11 +221,13 @@ class SoundService {
 
       await player.play(AssetSource('sounds/$defaultFileName'));
     } catch (e) {
-      debugPrint("Error al reproducir audio personalizado ($customFilePath): $e");
+      debugPrint("Error reproduciendo audio ($customFilePath): $e. Usando predeterminado.");
       try {
-        await player.play(AssetSource('sounds/$defaultFileName'));
+        final fallbackPlayer = AudioPlayer();
+        _player = fallbackPlayer;
+        await fallbackPlayer.play(AssetSource('sounds/$defaultFileName'));
       } catch (e2) {
-        debugPrint("Error reproduciendo audio por defecto: $e2");
+        debugPrint("Error crítico reproduciendo audio por defecto: $e2");
       }
     }
   }

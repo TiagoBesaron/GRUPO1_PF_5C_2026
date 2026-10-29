@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:go_router/go_router.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  DateTime? _fechaNacimiento;
   bool _cargando = false;
   bool _ocultarPassword = true;
   bool _ocultarConfirmPassword = true;
@@ -29,8 +31,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  Future<void> _seleccionarFechaNacimiento() async {
+    final now = DateTime.now();
+    final fecha = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 20),
+      firstDate: DateTime(1900),
+      lastDate: now,
+      locale: const Locale('es', 'ES'),
+      helpText: 'SELECCIONÁ TU FECHA DE NACIMIENTO',
+      cancelText: 'CANCELAR',
+      confirmText: 'ACEPTAR',
+    );
+
+    if (fecha != null) {
+      setState(() {
+        _fechaNacimiento = fecha;
+      });
+    }
+  }
+
   Future<void> _registrar() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_fechaNacimiento == null) {
+      _mostrarError("Por favor, seleccioná tu fecha de nacimiento.");
+      return;
+    }
 
     setState(() => _cargando = true);
 
@@ -41,9 +68,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passwordController.text.trim(),
       );
 
-      if (_nombreController.text.trim().isNotEmpty) {
-        await userCredential.user
-            ?.updateDisplayName(_nombreController.text.trim());
+      final user = userCredential.user;
+      if (user != null) {
+        final nombre = _nombreController.text.trim();
+        await user.updateDisplayName(nombre);
+
+        final ref = FirebaseDatabase.instance.ref('usuarios/${user.uid}');
+        await ref.update({
+          'nombre': nombre,
+          'fecha_nacimiento': _fechaNacimiento!.toIso8601String(),
+        });
       }
 
       if (mounted) {
@@ -85,6 +119,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Crear Cuenta"),
@@ -109,9 +145,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 30),
 
-                  // CAMPO NOMBRE
                   TextFormField(
                     controller: _nombreController,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
                       labelText: "Nombre completo",
                       prefixIcon: Icon(Icons.person_outline),
@@ -126,7 +162,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // CAMPO EMAIL
+                  InkWell(
+                    onTap: _seleccionarFechaNacimiento,
+                    borderRadius: BorderRadius.circular(4),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Fecha de Nacimiento',
+                        prefixIcon: Icon(Icons.cake_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      child: Text(
+                        _fechaNacimiento != null
+                            ? "${_fechaNacimiento!.day.toString().padLeft(2, '0')}/${_fechaNacimiento!.month.toString().padLeft(2, '0')}/${_fechaNacimiento!.year}"
+                            : 'Seleccionar fecha',
+                        style: TextStyle(
+                          color: _fechaNacimiento != null
+                              ? (isDark ? Colors.white : Colors.black87)
+                              : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -147,7 +205,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // CAMPO CONTRASEÑA
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _ocultarPassword,
@@ -180,7 +237,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // CAMPO CONFIRMAR CONTRASEÑA
                   TextFormField(
                     controller: _confirmPasswordController,
                     obscureText: _ocultarConfirmPassword,
@@ -214,7 +270,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // BOTÓN DE REGISTRO
                   SizedBox(
                     height: 50,
                     child: ElevatedButton(
@@ -236,7 +291,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // VOLVER A LOGIN
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
