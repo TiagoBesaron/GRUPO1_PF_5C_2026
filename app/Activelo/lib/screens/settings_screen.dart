@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import '../provider/theme_provider.dart';
 import '../provider/user_mode_provider.dart';
 import '../provider/sound_provider.dart';
@@ -16,12 +15,11 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  bool _vibracionHabilitada = true;
-
   String _getNombreArchivo(String? path, String defaultName, List<SoundItem> library) {
     if (path == null || path.isEmpty) return 'Predeterminado ($defaultName)';
     final match = library.where((item) => item.path == path);
     if (match.isNotEmpty) return match.first.name;
+    if (path.startsWith('data:')) return 'Audio Personalizado';
     if (path.contains('/')) return path.split('/').last;
     if (path.contains('\\')) return path.split('\\').last;
     return path;
@@ -33,29 +31,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.audio,
+        type: FileType.custom,
+        allowedExtensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg'],
         allowMultiple: false,
+        withData: true, // Requerido para capturar los bytes en Web
       );
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
-        final String? pathElegido = file.path ?? (kIsWeb ? file.name : null);
 
-        if (pathElegido != null) {
-          final nuevoSonido = await ref
-              .read(customSoundsLibraryProvider.notifier)
-              .agregarSonido(file.name, pathElegido);
+        final nuevoSonido = await ref
+            .read(customSoundsLibraryProvider.notifier)
+            .agregarSonido(
+              name: file.name,
+              path: file.path,
+              bytes: file.bytes,
+            );
 
-          if (nuevoSonido != null) {
-            onSelected(nuevoSonido.path);
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Sonido agregado: ${file.name}'),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            }
+        if (nuevoSonido != null) {
+          onSelected(nuevoSonido.path);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Sonido guardado: ${file.name}'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No se pudo procesar el archivo de audio.'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
           }
         }
       }
@@ -102,7 +112,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     const Divider(),
 
-                    // Opción 1: Predeterminado
+                    // Predeterminado
                     RadioListTile<String?>(
                       title: Text('Predeterminado ($defaultFileName)'),
                       subtitle: const Text('Sonido original de la app'),
@@ -123,12 +133,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
 
-                    // Opción 2...N: Sonidos agregados por el usuario
+                    // Lista de sonidos agregados
                     ...library.map((sound) {
                       return RadioListTile<String?>(
                         title: Text(sound.name),
                         subtitle: Text(
-                          sound.path,
+                          sound.path.startsWith('data:')
+                              ? 'Archivo guardado en memoria'
+                              : sound.path,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -152,7 +164,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                     const Divider(),
 
-                    // Botón para agregar nuevo sonido
+                    // Botón agregar
                     ListTile(
                       leading: const CircleAvatar(
                         backgroundColor: Colors.blueAccent,
@@ -356,18 +368,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       },
                     ),
                   ],
-                  const Divider(height: 1),
-                  SwitchListTile(
-                    secondary: const Icon(Icons.vibration, color: Colors.blue),
-                    title: const Text('Vibración Háptica'),
-                    subtitle:
-                        const Text('Vibración en el teléfono al registrar toques'),
-                    value: _vibracionHabilitada,
-                    activeThumbColor: Colors.blue,
-                    onChanged: (val) {
-                      setState(() => _vibracionHabilitada = val);
-                    },
-                  ),
                 ],
               ),
             ),

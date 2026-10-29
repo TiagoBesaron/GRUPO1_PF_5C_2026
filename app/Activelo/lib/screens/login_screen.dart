@@ -110,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         height: 140,
                         child: ClipOval(
                           child: Transform.scale(
-                            scale: 1.32,
+                            scale: 1.14,
                             child: Image.asset(
                               'assets/logo.png',
                               fit: BoxFit.cover,

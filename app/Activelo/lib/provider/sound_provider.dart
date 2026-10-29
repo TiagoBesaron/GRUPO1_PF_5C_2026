@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Modelo para los sonidos personalizados cargados por el usuario
+// Modelo de Sonido Personalizado
 class SoundItem {
   final String id;
   final String name;
@@ -29,10 +31,10 @@ class SoundItem {
       );
 }
 
-// Habilitar / deshabilitar efectos de sonido
+// Control de Efectos de Sonido (On/Off)
 final soundEnabledProvider = StateProvider<bool>((ref) => true);
 
-// Biblioteca de sonidos subidos por el usuario
+// Biblioteca de Sonidos Guardados por el Usuario
 final customSoundsLibraryProvider =
     StateNotifierProvider<CustomSoundsLibraryNotifier, List<SoundItem>>((ref) {
   return CustomSoundsLibraryNotifier();
@@ -57,13 +59,53 @@ class CustomSoundsLibraryNotifier extends StateNotifier<List<SoundItem>> {
     }
   }
 
-  Future<SoundItem?> agregarSonido(String name, String path) async {
+  Future<SoundItem?> agregarSonido({
+    required String name,
+    String? path,
+    Uint8List? bytes,
+  }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final newItem = SoundItem(id: path, name: name, path: path);
+      String finalPath = '';
 
-      // Evita duplicar el mismo archivo
-      final exists = state.any((s) => s.path == path);
+      if (kIsWeb) {
+        // En Web creamos un Data URI Base64 para reproducción inmediata
+        if (bytes != null) {
+          final base64Str = base64Encode(bytes);
+          final ext = name.split('.').last.toLowerCase();
+          final mime = ext == 'wav' ? 'audio/wav' : 'audio/mp3';
+          finalPath = 'data:$mime;base64,$base64Str';
+        } else if (path != null && path.startsWith('data:')) {
+          finalPath = path;
+        } else {
+          return null;
+        }
+      } else {
+        // En Android / iOS guardamos el archivo en disco local
+        final appDocDir = await getApplicationDocumentsDirectory();
+        final soundsFolder = Directory('${appDocDir.path}/custom_sounds');
+        if (!await soundsFolder.exists()) {
+          await soundsFolder.create(recursive: true);
+        }
+
+        final cleanName = name.replaceAll(RegExp(r'[^\w\.-]'), '_');
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_$cleanName';
+        final destinationFile = File('${soundsFolder.path}/$fileName');
+
+        if (path != null && path.isNotEmpty && await File(path).exists()) {
+          await File(path).copy(destinationFile.path);
+        } else if (bytes != null) {
+          await destinationFile.writeAsBytes(bytes);
+        } else {
+          return null;
+        }
+
+        finalPath = destinationFile.path;
+      }
+
+      final newItem = SoundItem(id: finalPath, name: name, path: finalPath);
+
+      final exists = state.any((s) => s.path == finalPath);
       if (!exists) {
         final newState = [...state, newItem];
         state = newState;
@@ -72,23 +114,26 @@ class CustomSoundsLibraryNotifier extends StateNotifier<List<SoundItem>> {
       }
       return newItem;
     } catch (e) {
-      debugPrint("Error al agregar sonido a la biblioteca: $e");
+      debugPrint("Error guardando el archivo de audio: $e");
       return null;
     }
   }
 }
 
-// Selección de sonido de Inicio
+// Selección de Sonido de Inicio
 final selectedStartSoundProvider =
     StateNotifierProvider<SelectedSoundNotifier, String?>((ref) {
   return SelectedSoundNotifier('selected_start_sound');
 });
 
-// Selección de sonido de Fin
+// Selección de Sonido de Fin
 final selectedFinishSoundProvider =
     StateNotifierProvider<SelectedSoundNotifier, String?>((ref) {
   return SelectedSoundNotifier('selected_finish_sound');
 });
+
+final customStartSoundProvider = selectedStartSoundProvider;
+final customFinishSoundProvider = selectedFinishSoundProvider;
 
 class SelectedSoundNotifier extends StateNotifier<String?> {
   final String prefKey;
@@ -121,40 +166,53 @@ class SelectedSoundNotifier extends StateNotifier<String?> {
   }
 }
 
-// Servicio para reproducción de audio
+// Servicio para Reproducción de Audio
 final soundServiceProvider = Provider<SoundService>((ref) {
   return SoundService(ref);
 });
 
 class SoundService {
   final Ref _ref;
+  AudioPlayer? _player;
 
   SoundService(this._ref);
+
+  AudioPlayer _getAudioPlayer() {
+    _player ??= AudioPlayer();
+    return _player!;
+  }
 
   Future<void> _playSound(String defaultFileName, String? customFilePath) async {
     final isEnabled = _ref.read(soundEnabledProvider);
     if (!isEnabled) return;
 
-    try {
-      final player = AudioPlayer();
+    final player = _getAudioPlayer();
 
-      player.onPlayerComplete.listen((_) {
-        player.dispose();
-      });
+    try {
+      await player.stop();
 
       if (customFilePath != null && customFilePath.isNotEmpty) {
-        await player.play(
-          DeviceFileSource(customFilePath),
-          mode: PlayerMode.lowLatency,
-        );
-      } else {
-        await player.play(
-          AssetSource('sounds/$defaultFileName'),
-          mode: PlayerMode.lowLatency,
-        );
+        if (customFilePath.startsWith('data:audio') || customFilePath.startsWith('http')) {
+          // Reproducción en Web / Data URI
+          await player.play(UrlSource(customFilePath));
+          return;
+        } else if (!kIsWeb) {
+          // Reproducción en Android / Dispositivo Físico
+          if (await File(customFilePath).exists()) {
+            await player.play(DeviceFileSource(customFilePath));
+            return;
+          }
+        }
       }
+
+      await player.play(AssetSource('sounds/$defaultFileName'));
     } catch (e) {
-      debugPrint("Error al reproducir audio ($defaultFileName / $customFilePath): $e");
+      debugPrint("Error al reproducir audio personalizado ($customFilePath): $e");
+      try {
+        await player.play(AssetSource('sounds/$defaultFileName'));
+      } catch (e2) {
+        debugPrint("Error reproduciendo audio por defecto: $e2");
+      }
     }
   }
 
