@@ -42,6 +42,44 @@ class _GestionarPerfilesScreenState
     return null;
   }
 
+  Future<void> _confirmarEliminarPerfil(String id, String nombre) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Eliminar Usuario'),
+        content: Text('¿Estás seguro de que deseas eliminar el perfil de "$nombre"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: const Text('CANCELAR'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: const Text('ELIMINAR'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmado == true) {
+      final perfilActivo = ref.read(perfilActivoProvider);
+      if (perfilActivo?.id == id) {
+        ref.read(perfilActivoProvider.notifier).deseleccionar();
+      }
+
+      await FirebaseDatabase.instance
+          .ref('usuarios/${user.uid}/perfiles/$id')
+          .remove();
+    }
+  }
+
   void _mostrarDialogoNuevoPerfil([
     String? id,
     String? nombreActual,
@@ -72,7 +110,7 @@ class _GestionarPerfilesScreenState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // AVATAR CON BOTÓN DE SUBIR FOTO
+                    // AVATAR CON OPCIÓN DE CAMBIO/ELIMINACIÓN
                     GestureDetector(
                       onTap: () async {
                         final foto = await _seleccionarFotoBase64();
@@ -114,7 +152,7 @@ class _GestionarPerfilesScreenState
                     ),
                     const SizedBox(height: 8),
 
-                    // BOTÓN SUBIR FOTO
+                    // BOTÓN SUBIR / CAMBIAR FOTO
                     OutlinedButton.icon(
                       onPressed: () async {
                         final foto = await _seleccionarFotoBase64();
@@ -137,7 +175,28 @@ class _GestionarPerfilesScreenState
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+
+                    // BOTÓN ELIMINAR FOTO
+                    if (fotoTemporal != null) ...[
+                      const SizedBox(height: 4),
+                      TextButton.icon(
+                        onPressed: () {
+                          setDialogState(() {
+                            fotoTemporal = null;
+                          });
+                        },
+                        icon: const Icon(Icons.delete_outline,
+                            size: 18, color: Colors.redAccent),
+                        label: const Text(
+                          'Eliminar foto',
+                          style: TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
 
                     // CAMPO NOMBRE
                     TextField(
@@ -232,7 +291,7 @@ class _GestionarPerfilesScreenState
       };
     }
 
-    List<Map<String, dynamic>> sesionesUsuario = [];
+    List> sesionesUsuario = [];
 
     rawSesiones.forEach((key, value) {
       if (value is Map) {
@@ -449,7 +508,7 @@ class _GestionarPerfilesScreenState
                             : 'Perfil Principal (Propietario)';
                     String? photoUrlPrincipal = user.photoURL;
 
-                    final List<Map<String, dynamic>> perfilesSecundarios = [];
+                    final List> perfilesSecundarios = [];
 
                     if (snapshotUserData.hasData &&
                         snapshotUserData.data!.snapshot.value != null) {
@@ -482,7 +541,6 @@ class _GestionarPerfilesScreenState
                       }
                     }
 
-                    // Lista unificada: Perfil Principal + Perfiles Creados
                     final todosLosPerfiles = [
                       {
                         'id': 'principal',
@@ -599,7 +657,7 @@ class _GestionarPerfilesScreenState
                                       trailing: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          if (!esPrincipal)
+                                          if (!esPrincipal) ...[
                                             IconButton(
                                               icon: const Icon(
                                                   Icons.edit_outlined,
@@ -612,6 +670,18 @@ class _GestionarPerfilesScreenState
                                                 photoUrl,
                                               ),
                                             ),
+                                            IconButton(
+                                              icon: const Icon(
+                                                  Icons.delete_outline,
+                                                  color: Colors.redAccent,
+                                                  size: 20),
+                                              onPressed: () =>
+                                                  _confirmarEliminarPerfil(
+                                                id,
+                                                nombre,
+                                              ),
+                                            ),
+                                          ],
                                           if (esSeleccionado)
                                             const Icon(Icons.check_circle,
                                                 color: Colors.green),

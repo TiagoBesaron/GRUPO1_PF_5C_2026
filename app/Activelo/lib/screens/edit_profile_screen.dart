@@ -90,18 +90,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
         final updates = <String, dynamic>{
           'nombre': nuevoNombre,
+          'photoUrl': _photoUrl,
         };
 
-        if (_photoUrl != null && _photoUrl!.isNotEmpty) {
-          updates['photoUrl'] = _photoUrl;
-
-          if (!_photoUrl!.startsWith('data:')) {
-            try {
-              await user.updatePhotoURL(_photoUrl);
-            } catch (e) {
-              debugPrint("updatePhotoURL ignorado por formato Base64: $e");
-            }
+        if (_photoUrl != null &&
+            _photoUrl!.isNotEmpty &&
+            !_photoUrl!.startsWith('data:')) {
+          try {
+            await user.updatePhotoURL(_photoUrl);
+          } catch (e) {
+            debugPrint("updatePhotoURL ignorado por formato Base64: $e");
           }
+        } else if (_photoUrl == null) {
+          try {
+            await user.updatePhotoURL(null);
+          } catch (_) {}
         }
 
         final ref = FirebaseDatabase.instance.ref('usuarios/${user.uid}');
@@ -205,7 +208,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // AVATAR DEL USUARIO
+                // AVATAR CON OPCIÓN A SUBIR O ELIMINAR FOTO
                 Center(
                   child: GestureDetector(
                     onTap: _seleccionarFoto,
@@ -245,15 +248,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 Center(
                   child: TextButton(
                     onPressed: _seleccionarFoto,
-                    child: const Text(
-                      'Cambiar foto de perfil',
-                      style: TextStyle(
+                    child: Text(
+                      _photoUrl == null ? 'Subir foto de perfil' : 'Cambiar foto de perfil',
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.blueAccent,
                       ),
                     ),
                   ),
                 ),
+                if (_photoUrl != null && _photoUrl!.isNotEmpty)
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _photoUrl = null;
+                        });
+                      },
+                      icon: const Icon(Icons.delete_outline,
+                          size: 18, color: Colors.redAccent),
+                      label: const Text(
+                        'Eliminar foto',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 16),
 
                 // TARJETA INFORMACIÓN PERSONAL
