@@ -1,0 +1,22 @@
+{
+  "@@locale": "de",
+  "appTitle": "Activelo",
+  "gestionarUsuarios": "Benutzerverwaltung",
+  "editarPerfil": "Profil Bearbeiten",
+  "iniciarSesion": "Anmelden",
+  "ajustes": "Einstellungen & Konfiguration",
+  "modoOscuro": "Dunkelmodus",
+  "idioma": "Sprache",
+  "modoProfesional": "Professioneller Modus",
+  "modoProfesionalDesc": "Aktivieren Sie die Mehrbenutzerverwaltung und Sitzungsnotizen.",
+  "aparienciaTema": "ERSCHEINUNGSBILD & THEMA",
+  "sonidoRetroalimentacion": "SOUND & FEEDBACK",
+  "efectosSonido": "Soundeffekte",
+  "sonidoInicio": "Startsound",
+  "sonidoFin": "Endsound",
+  "cuentaPerfil": "KONTO & PROFIL",
+  "dispositivosBluetooth": "Bluetooth-Geräte",
+  "informacion": "INFORMATIONEN",
+  "terminosPrivacidad": "Bedingungen & Datenschutz",
+  "cerrarSesion": "Abmelden"
+}

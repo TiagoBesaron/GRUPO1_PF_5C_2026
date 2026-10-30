@@ -6,18 +6,18 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 import 'firebase_options.dart';
+import 'l10n/app_localizations.dart';
 import 'core/router/app_router.dart';
 import 'provider/theme_provider.dart';
+import 'provider/locale_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicialización de Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Persistencia offline: ACTIVA en celulares (Android/iOS), ignorada en Web
   if (!kIsWeb) {
     try {
       FirebaseDatabase.instance.setPersistenceEnabled(true);
@@ -36,6 +36,7 @@ class ActiveloApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
     final router = ref.watch(routerProvider);
+    final currentLocale = ref.watch(localeProvider);
 
     const primaryBlue = Colors.blue;
 
@@ -102,18 +103,15 @@ class ActiveloApp extends ConsumerWidget {
       themeMode: themeMode,
       theme: lightTheme,
       darkTheme: darkTheme,
+      locale: currentLocale,
       routerConfig: router,
-
-      // Delegados y soporte para idioma Español
       localizationsDelegates: const [
+        AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('es', 'ES'),
-        Locale('en', 'US'),
-      ],
+      supportedLocales: AppLocalizations.supportedLocales,
     );
   }
 }

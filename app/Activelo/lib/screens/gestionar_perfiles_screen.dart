@@ -110,7 +110,6 @@ class _GestionarPerfilesScreenState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // AVATAR CON OPCIÓN DE CAMBIO/ELIMINACIÓN
                     GestureDetector(
                       onTap: () async {
                         final foto = await _seleccionarFotoBase64();
@@ -152,7 +151,6 @@ class _GestionarPerfilesScreenState
                     ),
                     const SizedBox(height: 8),
 
-                    // BOTÓN SUBIR / CAMBIAR FOTO
                     OutlinedButton.icon(
                       onPressed: () async {
                         final foto = await _seleccionarFotoBase64();
@@ -176,7 +174,6 @@ class _GestionarPerfilesScreenState
                       ),
                     ),
 
-                    // BOTÓN ELIMINAR FOTO
                     if (fotoTemporal != null) ...[
                       const SizedBox(height: 4),
                       TextButton.icon(
@@ -198,7 +195,6 @@ class _GestionarPerfilesScreenState
                     ],
                     const SizedBox(height: 12),
 
-                    // CAMPO NOMBRE
                     TextField(
                       controller: nombreController,
                       textCapitalization: TextCapitalization.words,
@@ -210,7 +206,6 @@ class _GestionarPerfilesScreenState
                     ),
                     const SizedBox(height: 12),
 
-                    // CAMPO NOTAS
                     TextField(
                       controller: notasController,
                       decoration: const InputDecoration(
@@ -291,7 +286,7 @@ class _GestionarPerfilesScreenState
       };
     }
 
-    List> sesionesUsuario = [];
+    List<Map<String, dynamic>> sesionesUsuario = [];
 
     rawSesiones.forEach((key, value) {
       if (value is Map) {
@@ -508,7 +503,7 @@ class _GestionarPerfilesScreenState
                             : 'Perfil Principal (Propietario)';
                     String? photoUrlPrincipal = user.photoURL;
 
-                    final List> perfilesSecundarios = [];
+                    final List<Map<String, dynamic>> perfilesSecundarios = [];
 
                     if (snapshotUserData.hasData &&
                         snapshotUserData.data!.snapshot.value != null) {

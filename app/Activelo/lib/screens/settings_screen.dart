@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:file_picker/file_picker.dart';
+import '../l10n/app_localizations.dart';
+
 import '../provider/theme_provider.dart';
 import '../provider/user_mode_provider.dart';
 import '../provider/sound_provider.dart';
+import '../provider/locale_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -17,15 +19,17 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  String _getNombreArchivo(String? path, String defaultName, List<SoundItem> library) {
-    if (path == null || path.isEmpty) return 'Predeterminado ($defaultName)';
-    final match = library.where((item) => item.path == path);
-    if (match.isNotEmpty) return match.first.name;
-    if (path.startsWith('data:')) return 'Audio Personalizado';
-    if (path.contains('/')) return path.split('/').last;
-    if (path.contains('\\')) return path.split('\\').last;
-    return path;
-  }
+  final Map<String, String> _idiomasSoportados = const {
+    'es': 'Español',
+    'en': 'English',
+    'fr': 'Français',
+    'it': 'Italiano',
+    'de': 'Deutsch',
+    'he': 'עברית (Hebreo)',
+    'ar': 'العربية (Árabe)',
+    'ja': '日本語 (Japonés)',
+    'zh': '中文 (Chino)',
+  };
 
   bool _esCumpleanosHoy(String? fechaIsoStr) {
     if (fechaIsoStr == null || fechaIsoStr.isEmpty) return false;
@@ -38,187 +42,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _agregarYSeleccionarAudio({
-    required String defaultFileName,
-    required Function(String?) onSelected,
-  }) async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg'],
-        allowMultiple: false,
-        withData: true,
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-
-        final nuevoSonido = await ref
-            .read(customSoundsLibraryProvider.notifier)
-            .agregarSonido(
-              name: file.name,
-              path: file.path,
-              bytes: file.bytes,
-            );
-
-        if (nuevoSonido != null) {
-          onSelected(nuevoSonido.path);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Sonido guardado: ${file.name}'),
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Archivo no válido o supera el peso máximo (3MB).'),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error seleccionando archivo de audio: $e');
-    }
-  }
-
-  void _mostrarSelectorSonido({
-    required BuildContext context,
-    required String titulo,
-    required String defaultFileName,
-    required String? currentPath,
-    required Function(String?) onSelected,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (modalContext) {
-        return Consumer(
-          builder: (context, ref, child) {
-            final library = ref.watch(customSoundsLibraryProvider);
-
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20.0, vertical: 8.0),
-                      child: Text(
-                        titulo,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const Divider(),
-                    RadioGroup<String?>(
-                      groupValue: currentPath,
-                      onChanged: (val) {
-                        onSelected(val);
-                        Navigator.pop(modalContext);
-                      },
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          RadioListTile<String?>(
-                            title: Text('Predeterminado ($defaultFileName)'),
-                            subtitle: const Text('Sonido original de la app'),
-                            value: null,
-                            secondary: IconButton(
-                              icon: const Icon(Icons.play_circle_fill,
-                                  color: Colors.blue),
-                              onPressed: () {
-                                ref
-                                    .read(soundServiceProvider)
-                                    .playPreview(null, defaultFileName);
-                              },
-                            ),
-                          ),
-                          ...library.map((sound) {
-                            return RadioListTile<String?>(
-                              title: Text(sound.name),
-                              subtitle: Text(
-                                sound.path.startsWith('data:')
-                                    ? 'Archivo guardado en memoria'
-                                    : sound.path,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              value: sound.path,
-                              secondary: IconButton(
-                                icon: const Icon(Icons.play_circle_fill,
-                                    color: Colors.blue),
-                                onPressed: () {
-                                  ref
-                                      .read(soundServiceProvider)
-                                      .playPreview(sound.path, defaultFileName);
-                                },
-                              ),
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
-                    const Divider(),
-                    ListTile(
-                      leading: const CircleAvatar(
-                        backgroundColor: Colors.blueAccent,
-                        child: Icon(Icons.add, color: Colors.white),
-                      ),
-                      title: const Text(
-                        'Agregar nuevo sonido',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blueAccent,
-                        ),
-                      ),
-                      subtitle: const Text('Seleccionar archivo (.mp3, .wav)'),
-                      onTap: () async {
-                        Navigator.pop(modalContext);
-                        await _agregarYSeleccionarAudio(
-                          defaultFileName: defaultFileName,
-                          onSelected: onSelected,
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final themeMode = ref.watch(themeProvider);
     final isDarkMode = themeMode == ThemeMode.dark;
     final esModoProfesional = ref.watch(modoProfesionalProvider);
     final sonidoHabilitado = ref.watch(soundEnabledProvider);
-
-    final selectedStartPath = ref.watch(selectedStartSoundProvider);
-    final selectedFinishPath = ref.watch(selectedFinishSoundProvider);
-    final soundLibrary = ref.watch(customSoundsLibraryProvider);
+    final currentLocale = ref.watch(localeProvider);
     final currentUser = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ajustes y Configuración'),
+        title: Text(loc?.ajustes ?? 'Ajustes y Configuración'),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -226,7 +62,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ENCABEZADO PERFIL ESTILO FACEBOOK
             if (currentUser != null)
               StreamBuilder<DatabaseEvent>(
                 stream: FirebaseDatabase.instance
@@ -359,9 +194,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 ),
                                 icon: const Icon(Icons.edit,
                                     size: 16, color: Colors.blueAccent),
-                                label: const Text(
-                                  'Editar',
-                                  style: TextStyle(
+                                label: Text(
+                                  loc?.editarPerfil ?? 'Editar',
+                                  style: const TextStyle(
                                       color: Colors.blueAccent,
                                       fontWeight: FontWeight.bold),
                                 ),
@@ -377,7 +212,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 },
               ),
 
-            // BANNER DE CUMPLEAÑOS
             if (currentUser != null)
               StreamBuilder<DatabaseEvent>(
                 stream: FirebaseDatabase.instance
@@ -454,11 +288,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 },
               ),
 
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
-                'PERFIL Y MODO DE USO',
-                style: TextStyle(
+                loc?.cuentaPerfil ?? 'PERFIL Y MODO DE USO',
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue,
@@ -469,9 +303,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Card(
               child: SwitchListTile(
                 secondary: const Icon(Icons.badge_outlined, color: Colors.blue),
-                title: const Text('Modo Profesional'),
-                subtitle: const Text(
-                  'Habilita la gestión de múltiples usuarios y notas de sesión.',
+                title: Text(loc?.modoProfesional ?? 'Modo Profesional'),
+                subtitle: Text(
+                  loc?.modoProfesionalDesc ??
+                      'Habilita la gestión de múltiples usuarios y notas de sesión.',
                 ),
                 value: esModoProfesional,
                 activeThumbColor: Colors.blue,
@@ -482,11 +317,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 20),
 
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
-                'APARIENCIA Y TEMA',
-                style: TextStyle(
+                loc?.aparienciaTema ?? 'APARIENCIA Y TEMA',
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue,
@@ -502,7 +337,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       isDarkMode ? Icons.dark_mode : Icons.light_mode,
                       color: Colors.blue,
                     ),
-                    title: const Text('Modo Oscuro'),
+                    title: Text(loc?.modoOscuro ?? 'Modo Oscuro'),
                     subtitle: const Text('Cambiar entre tema claro y oscuro'),
                     value: isDarkMode,
                     activeThumbColor: Colors.blue,
@@ -510,16 +345,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ref.read(themeProvider.notifier).toggleTheme(value);
                     },
                   ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.language, color: Colors.blueAccent),
+                    title: Text(loc?.idioma ?? 'Idioma'),
+                    subtitle: Text(_idiomasSoportados[currentLocale.languageCode] ?? 'Español'),
+                    trailing: DropdownButton<String>(
+                      value: currentLocale.languageCode,
+                      underline: const SizedBox(),
+                      items: _idiomasSoportados.entries.map((entry) {
+                        return DropdownMenuItem<String>(
+                          value: entry.key,
+                          child: Text(entry.value),
+                        );
+                      }).toList(),
+                      onChanged: (langCode) {
+                        if (langCode != null) {
+                          ref.read(localeProvider.notifier).cambiarIdioma(langCode);
+                        }
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
 
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
-                'SONIDO Y RETROALIMENTACIÓN',
-                style: TextStyle(
+                loc?.sonidoRetroalimentacion ?? 'SONIDO Y RETROALIMENTACIÓN',
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue,
@@ -528,93 +384,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             Card(
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    secondary: const Icon(Icons.volume_up, color: Colors.blue),
-                    title: const Text('Efectos de Sonido'),
-                    subtitle: const Text(
-                        'Reproducir sonidos al iniciar y finalizar la rutina'),
-                    value: sonidoHabilitado,
-                    activeThumbColor: Colors.blue,
-                    onChanged: (val) {
-                      ref.read(soundEnabledProvider.notifier).state = val;
-                    },
-                  ),
-                  if (sonidoHabilitado) ...[
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: IconButton(
-                        icon: const Icon(Icons.play_circle_fill,
-                            color: Colors.blue),
-                        tooltip: 'Probar sonido',
-                        onPressed: () {
-                          ref.read(soundServiceProvider).playStart();
-                        },
-                      ),
-                      title: const Text('Sonido de Inicio'),
-                      subtitle: Text(_getNombreArchivo(
-                        selectedStartPath,
-                        'inicio.mp3',
-                        soundLibrary,
-                      )),
-                      trailing: const Icon(Icons.folder_open, color: Colors.blue),
-                      onTap: () {
-                        _mostrarSelectorSonido(
-                          context: context,
-                          titulo: 'Seleccionar Sonido de Inicio',
-                          defaultFileName: 'inicio.mp3',
-                          currentPath: selectedStartPath,
-                          onSelected: (path) {
-                            ref
-                                .read(selectedStartSoundProvider.notifier)
-                                .setSelectedSound(path);
-                          },
-                        );
-                      },
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: IconButton(
-                        icon: const Icon(Icons.play_circle_fill,
-                            color: Colors.blue),
-                        tooltip: 'Probar sonido',
-                        onPressed: () {
-                          ref.read(soundServiceProvider).playFinish();
-                        },
-                      ),
-                      title: const Text('Sonido de Fin'),
-                      subtitle: Text(_getNombreArchivo(
-                        selectedFinishPath,
-                        'fin.mp3',
-                        soundLibrary,
-                      )),
-                      trailing: const Icon(Icons.folder_open, color: Colors.blue),
-                      onTap: () {
-                        _mostrarSelectorSonido(
-                          context: context,
-                          titulo: 'Seleccionar Sonido de Fin',
-                          defaultFileName: 'fin.mp3',
-                          currentPath: selectedFinishPath,
-                          onSelected: (path) {
-                            ref
-                                .read(selectedFinishSoundProvider.notifier)
-                                .setSelectedSound(path);
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                ],
+              child: SwitchListTile(
+                secondary: const Icon(Icons.volume_up, color: Colors.blue),
+                title: Text(loc?.efectosSonido ?? 'Efectos de Sonido'),
+                subtitle: const Text(
+                    'Reproducir sonidos al iniciar y finalizar la rutina'),
+                value: sonidoHabilitado,
+                activeThumbColor: Colors.blue,
+                onChanged: (val) {
+                  ref.read(soundEnabledProvider.notifier).state = val;
+                },
               ),
             ),
             const SizedBox(height: 20),
 
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
-                'CUENTA Y PERFIL',
-                style: TextStyle(
+                loc?.cuentaPerfil ?? 'CUENTA Y PERFIL',
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue,
@@ -628,7 +416,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ListTile(
                     leading:
                         const Icon(Icons.person_outline, color: Colors.blue),
-                    title: const Text('Editar Perfil'),
+                    title: Text(loc?.editarPerfil ?? 'Editar Perfil'),
                     subtitle: const Text('Actualiza tu información personal'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/edit-profile'),
@@ -637,7 +425,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ListTile(
                     leading: const Icon(Icons.bluetooth_searching,
                         color: Colors.blue),
-                    title: const Text('Dispositivos Bluetooth'),
+                    title: Text(loc?.dispositivosBluetooth ?? 'Dispositivos Bluetooth'),
                     subtitle: const Text('Administrar conexiones y escaneo'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/bluetooth'),
@@ -647,11 +435,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 20),
 
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
-                'INFORMACIÓN',
-                style: TextStyle(
+                loc?.informacion ?? 'INFORMACIÓN',
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue,
@@ -671,7 +459,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ListTile(
                     leading: const Icon(Icons.privacy_tip_outlined,
                         color: Colors.blue),
-                    title: const Text('Términos y Privacidad'),
+                    title: Text(loc?.terminosPrivacidad ?? 'Términos y Privacidad'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/terminos-privacidad'),
                   ),
@@ -691,9 +479,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
                 icon: const Icon(Icons.logout, color: Colors.redAccent),
-                label: const Text(
-                  'Cerrar Sesión',
-                  style: TextStyle(
+                label: Text(
+                  loc?.cerrarSesion ?? 'Cerrar Sesión',
+                  style: const TextStyle(
                     color: Colors.redAccent,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

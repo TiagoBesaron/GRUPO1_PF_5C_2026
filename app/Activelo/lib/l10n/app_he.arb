@@ -1,0 +1,22 @@
+{
+  "@@locale": "he",
+  "appTitle": "Activelo",
+  "gestionarUsuarios": "ניהול משתמשים",
+  "editarPerfil": "עריכת פרופיל",
+  "iniciarSesion": "התחברות",
+  "ajustes": "הגדרות ותצורה",
+  "modoOscuro": "מצב כהה",
+  "idioma": "שפה",
+  "modoProfesional": "מצב מקצועי",
+  "modoProfesionalDesc": "אפשר ניהול ריבוי משתמשים והערות הפעלה.",
+  "aparienciaTema": "מראה ועיצוב",
+  "sonidoRetroalimentacion": "צליל ומשוב",
+  "efectosSonido": "אפקטים קוליים",
+  "sonidoInicio": "צליל התחלה",
+  "sonidoFin": "צליל סיום",
+  "cuentaPerfil": "חשבון ופרופיל",
+  "dispositivosBluetooth": "מכשירי Bluetooth",
+  "informacion": "מידע",
+  "terminosPrivacidad": "תנאים ופרטיות",
+  "cerrarSesion": "התנתקות"
+}

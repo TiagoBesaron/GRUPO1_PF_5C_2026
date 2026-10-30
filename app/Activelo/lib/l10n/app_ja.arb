@@ -1,0 +1,22 @@
+{
+  "@@locale": "ja",
+  "appTitle": "Activelo",
+  "gestionarUsuarios": "ユーザー管理",
+  "editarPerfil": "プロフィール編集",
+  "iniciarSesion": "ログイン",
+  "ajustes": "設定と構成",
+  "modoOscuro": "ダークモード",
+  "idioma": "言語",
+  "modoProfesional": "プロフェッショナルモード",
+  "modoProfesionalDesc": "マルチユーザー管理とセッションメモを有効にします。",
+  "aparienciaTema": "外観とテーマ",
+  "sonidoRetroalimentacion": "サウンドとフィードバック",
+  "efectosSonido": "効果音",
+  "sonidoInicio": "開始音",
+  "sonidoFin": "終了音",
+  "cuentaPerfil": "アカウントとプロフィール",
+  "dispositivosBluetooth": "Bluetoothデバイス",
+  "informacion": "情報",
+  "terminosPrivacidad": "利用規約とプライバシー",
+  "cerrarSesion": "ログアウト"
+}

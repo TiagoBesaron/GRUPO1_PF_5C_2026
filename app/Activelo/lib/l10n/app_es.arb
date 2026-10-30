@@ -1,0 +1,22 @@
+{
+  "@@locale": "es",
+  "appTitle": "Activelo",
+  "gestionarUsuarios": "Gestión de Usuarios",
+  "editarPerfil": "Editar Perfil",
+  "iniciarSesion": "Iniciar Sesión",
+  "ajustes": "Ajustes y Configuración",
+  "modoOscuro": "Modo Oscuro",
+  "idioma": "Idioma",
+  "modoProfesional": "Modo Profesional",
+  "modoProfesionalDesc": "Habilita la gestión de múltiples usuarios y notas de sesión.",
+  "aparienciaTema": "APARIENCIA Y TEMA",
+  "sonidoRetroalimentacion": "SONIDO Y RETROALIMENTACIÓN",
+  "efectosSonido": "Efectos de Sonido",
+  "sonidoInicio": "Sonido de Inicio",
+  "sonidoFin": "Sonido de Fin",
+  "cuentaPerfil": "CUENTA Y PERFIL",
+  "dispositivosBluetooth": "Dispositivos Bluetooth",
+  "informacion": "INFORMACIÓN",
+  "terminosPrivacidad": "Términos y Privacidad",
+  "cerrarSesion": "Cerrar Sesión"
+}

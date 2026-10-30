@@ -1,0 +1,22 @@
+{
+  "@@locale": "zh",
+  "appTitle": "Activelo",
+  "gestionarUsuarios": "用户管理",
+  "editarPerfil": "编辑个人资料",
+  "iniciarSesion": "登录",
+  "ajustes": "设置与配置",
+  "modoOscuro": "深色模式",
+  "idioma": "语言",
+  "modoProfesional": "专业模式",
+  "modoProfesionalDesc": "启用多用户管理和会话备注。",
+  "aparienciaTema": "外观与主题",
+  "sonidoRetroalimentacion": "声音与反馈",
+  "efectosSonido": "音效",
+  "sonidoInicio": "开始声音",
+  "sonidoFin": "结束声音",
+  "cuentaPerfil": "账户与个人资料",
+  "dispositivosBluetooth": "蓝牙设备",
+  "informacion": "信息",
+  "terminosPrivacidad": "条款与隐私",
+  "cerrarSesion": "退出登录"
+}

@@ -1,0 +1,22 @@
+{
+  "@@locale": "ar",
+  "appTitle": "Activelo",
+  "gestionarUsuarios": "إدارة المستخدمين",
+  "editarPerfil": "تعديل الملف الشخصي",
+  "iniciarSesion": "تسجيل الدخول",
+  "ajustes": "الإعدادات والتكوين",
+  "modoOscuro": "الوضع الداكن",
+  "idioma": "اللغة",
+  "modoProfesional": "الوضع الاحترافي",
+  "modoProfesionalDesc": "تمكين إدارة متعددي المستخدمين وملاحظات الجلسة.",
+  "aparienciaTema": "المظهر والمظهر العام",
+  "sonidoRetroalimentacion": "الصوت والملاحظات",
+  "efectosSonido": "المؤثرات الصوتية",
+  "sonidoInicio": "صوت البداية",
+  "sonidoFin": "صوت النهاية",
+  "cuentaPerfil": "الحساب والملف الشخصي",
+  "dispositivosBluetooth": "أجهزة البلوتوث",
+  "informacion": "المعلومات",
+  "terminosPrivacidad": "الشروط والخصوصية",
+  "cerrarSesion": "تسجيل الخروج"
+}
