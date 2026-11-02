@@ -1,5 +1,5 @@
-5. Que si me equivoco la contraseña me diga email/contraseña incorrecta.
-6. Que confirme la contraseña al registrarse.
-7. Que no haya ningun error.
-8. Manual de usuario.
-9. APP para el club.
+1. Que si me equivoco la contraseña me diga email/contraseña incorrecta.
+2. Que confirme la contraseña al registrarse.
+3. Que no haya ningun error.
+4. Manual de usuario.
+5. APP para el club.

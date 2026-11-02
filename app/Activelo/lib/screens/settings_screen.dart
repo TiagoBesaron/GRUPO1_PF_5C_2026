@@ -449,7 +449,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.info_outline, color: Colors.blue),
-                    title: Text('${loc.appTitle}'),
+                    title: Text(loc.appTitle),
                     subtitle: Text(loc.versionApp),
                   ),
                   const Divider(height: 1),
