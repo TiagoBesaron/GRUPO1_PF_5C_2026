@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:go_router/go_router.dart';
+import '../l10n/app_localizations.dart';
 import '../provider/bluetooth_provider.dart';
 import '../provider/perfil_provider.dart';
 import '../provider/user_mode_provider.dart';
@@ -45,7 +46,7 @@ class _EntrenamientoActivoScreenState
   bool esColor1Actual = true;
 
   int podActivoActual = -1;
-  String estadoTexto = "Preparándote...";
+  String estadoTexto = "";
 
   final List<List<int>> listaRGB = [
     [255, 0, 0],
@@ -66,7 +67,6 @@ class _EntrenamientoActivoScreenState
     tiempoLimiteSeg = widget.config['tiempoLimiteSeg'] ?? 30;
 
     if (modo == 'manual') {
-      estadoTexto = "Tocá un cuadrado para encender su Pod";
       enCuentaRegresiva = false;
     } else {
       _iniciarCuentaRegresiva();
@@ -77,7 +77,6 @@ class _EntrenamientoActivoScreenState
     setState(() {
       enCuentaRegresiva = true;
       cuentaRegresiva = 3;
-      estadoTexto = "¡Preparate!";
     });
 
     _timerCuentaRegresiva?.cancel();
@@ -163,7 +162,7 @@ class _EntrenamientoActivoScreenState
       rondaActual++;
       enPausaEntreRondas = true;
       esperandoSensor = false;
-      estadoTexto = "¡Atento!";
+      estadoTexto = AppLocalizations.of(context).atento;
     });
 
     double delaySeg =
@@ -194,6 +193,7 @@ class _EntrenamientoActivoScreenState
   void _encenderPod(int podIndex) {
     if (sesionTerminada) return;
     _timerDistractor?.cancel();
+    final loc = AppLocalizations.of(context);
 
     if (modo == 'bicolor') {
       esColor1Actual = Random().nextBool();
@@ -211,10 +211,10 @@ class _EntrenamientoActivoScreenState
       podActivoActual = podIndex;
       if (modo == 'bicolor') {
         estadoTexto = esColor1Actual
-            ? "¡TOCÁ el Pod ${podIndex + 1}! (Color 1)"
-            : "¡NO TOCAR! (Color 2 en Pod ${podIndex + 1})";
+            ? loc.tocaPodColor1(podIndex + 1)
+            : loc.noTocarColor2(podIndex + 1);
       } else {
-        estadoTexto = "¡Pasa la mano por el Pod ${podIndex + 1}!";
+        estadoTexto = loc.pasaManoPorPod(podIndex + 1);
       }
     });
 
@@ -227,7 +227,7 @@ class _EntrenamientoActivoScreenState
         if (mounted && esperandoSensor && !sesionTerminada) {
           _apagarPodActual();
           setState(() {
-            estadoTexto = "¡Excelente! Color 2 ignorado.";
+            estadoTexto = loc.excelenteColorIgnorado;
           });
           Future.delayed(const Duration(milliseconds: 300), () {
             if (mounted && !sesionTerminada) iniciarSiguienteRonda();
@@ -244,13 +244,15 @@ class _EntrenamientoActivoScreenState
       ref.read(bluetoothProvider.notifier).enviarComando(comando);
     }
 
+    final loc = AppLocalizations.of(context);
+
     setState(() {
       esperandoSensor = false;
       ledEncendido = false;
       podActivoActual = -1;
       estadoTexto = modo == 'manual'
-          ? "Seleccioná un Pod para encender"
-          : "LED Apagado.";
+          ? loc.seleccionaPodEncender
+          : loc.ledApagado;
     });
   }
 
@@ -258,6 +260,7 @@ class _EntrenamientoActivoScreenState
     if (!esperandoSensor || sesionTerminada) return;
     _timerDistractor?.cancel();
 
+    final loc = AppLocalizations.of(context);
     double tiempoSeg =
         double.tryParse(ultimoTiempoStr.replaceAll(" s", "")) ?? 0.0;
     int podPrevio = podActivoActual;
@@ -268,20 +271,18 @@ class _EntrenamientoActivoScreenState
       if (esColor1Actual) {
         tiemposObtenidos.add(tiempoSeg);
         setState(() {
-          estadoTexto =
-              "¡Toque en Pod ${podPrevio + 1}! (${tiempoSeg.toStringAsFixed(3)} s)";
+          estadoTexto = loc.toqueEnPod(podPrevio + 1, tiempoSeg.toStringAsFixed(3));
         });
       } else {
         cantidadErrores++;
         setState(() {
-          estadoTexto = "¡Error! Tocaste el Color 2 en Pod ${podPrevio + 1}";
+          estadoTexto = loc.errorTocasteColor2(podPrevio + 1);
         });
       }
     } else {
       tiemposObtenidos.add(tiempoSeg);
       setState(() {
-        estadoTexto =
-            "¡Toque en Pod ${podPrevio + 1}! (${tiempoSeg.toStringAsFixed(3)} s)";
+        estadoTexto = loc.toqueEnPod(podPrevio + 1, tiempoSeg.toStringAsFixed(3));
       });
     }
 
@@ -295,6 +296,7 @@ class _EntrenamientoActivoScreenState
   void _mostrarErrorDesconexion() {
     if (sesionTerminada || !mounted) return;
 
+    final loc = AppLocalizations.of(context);
     _timerCuentaRegresiva?.cancel();
     _timerTiempo?.cancel();
     _timerDistractor?.cancel();
@@ -309,23 +311,21 @@ class _EntrenamientoActivoScreenState
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.bluetooth_disabled, color: Colors.redAccent),
-            SizedBox(width: 8),
-            Text("Desconectado"),
+            const Icon(Icons.bluetooth_disabled, color: Colors.redAccent),
+            const SizedBox(width: 8),
+            Text(loc.desconectado),
           ],
         ),
-        content: const Text(
-          "Se interrumpió la conexión Bluetooth con el Pod Central. La sesión se ha detenido.",
-        ),
+        content: Text(loc.errorDesconexionMensaje),
         actions: [
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               context.go('/home');
             },
-            child: const Text("Volver al Inicio"),
+            child: Text(loc.volverAlInicio),
           ),
         ],
       ),
@@ -334,6 +334,8 @@ class _EntrenamientoActivoScreenState
 
   Future<void> finalizarEntrenamiento() async {
     if (sesionTerminada) return;
+    final loc = AppLocalizations.of(context);
+
     _timerCuentaRegresiva?.cancel();
     _timerTiempo?.cancel();
     _timerDistractor?.cancel();
@@ -358,7 +360,7 @@ class _EntrenamientoActivoScreenState
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text("¡Entrenamiento Finalizado! 🏆"),
+        title: Text(loc.entrenamientoFinalizado),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -366,24 +368,24 @@ class _EntrenamientoActivoScreenState
             children: [
               if (esModoProfesional) ...[
                 Text(
-                  "Usuario: ${perfilActivo?.nombre ?? 'Perfil Principal'}",
+                  loc.usuario(perfilActivo?.nombre ?? loc.perfilPrincipal),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
               ],
-              Text("Toques válidos: ${tiemposObtenidos.length}"),
-              Text("Promedio: ${promedio.toStringAsFixed(3)} s"),
-              if (modo == 'bicolor') Text("Errores cometidos: $cantidadErrores"),
+              Text(loc.toquesValidos(tiemposObtenidos.length)),
+              Text(loc.promedioSegundos(promedio.toStringAsFixed(3))),
+              if (modo == 'bicolor') Text(loc.erroresCometidos(cantidadErrores)),
               const SizedBox(height: 16),
 
               TextField(
                 controller: notasController,
                 maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Anotaciones de la sesión (Opcional)',
-                  hintText: 'Ej: Buena evolución, fatiga muscular, etc.',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.note_add_outlined),
+                decoration: InputDecoration(
+                  labelText: loc.anotacionesSesionOpcional,
+                  hintText: loc.hintAnotaciones,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.note_add_outlined),
                 ),
               ),
             ],
@@ -419,7 +421,7 @@ class _EntrenamientoActivoScreenState
                 context.go('/home');
               }
             },
-            child: const Text("GUARDAR Y FINALIZAR"),
+            child: Text(loc.guardarYFinalizar),
           )
         ],
       ),
@@ -435,22 +437,24 @@ class _EntrenamientoActivoScreenState
     super.dispose();
   }
 
-  String _getTituloAppBar() {
+  String _getTituloAppBar(AppLocalizations loc) {
     if (enCuentaRegresiva) {
-      return "¡Aparato Listo!";
+      return loc.aparatoListo;
     } else if (modo == 'manual') {
-      return "Modo Manual (Toques: ${tiemposObtenidos.length})";
+      return loc.modoManualToques(tiemposObtenidos.length);
     } else if (modo == 'tiempo') {
-      return "Tiempo: ${tiempoRestanteSeg}s | Toques: ${tiemposObtenidos.length}";
+      return loc.tiempoRestanteToques(tiemposObtenidos.length, tiempoRestanteSeg);
     } else if (modo == 'bicolor') {
-      return "Bicolor | Ronda $rondaActual de $rondasTotal";
+      return loc.bicolorRonda(rondaActual, rondasTotal);
     } else {
-      return "Ronda $rondaActual de $rondasTotal";
+      return loc.rondaDe(rondaActual, rondasTotal);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     ref.listen<BluetoothState>(bluetoothProvider, (prev, next) {
       if (prev?.conectado == true && !next.conectado) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -483,7 +487,7 @@ class _EntrenamientoActivoScreenState
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_getTituloAppBar()),
+          title: Text(_getTituloAppBar(loc)),
           centerTitle: true,
           automaticallyImplyLeading: false,
         ),
@@ -497,7 +501,7 @@ class _EntrenamientoActivoScreenState
                   Chip(
                     avatar: const Icon(Icons.person, size: 16),
                     label: Text(
-                      perfilActivo?.nombre ?? "Perfil Principal",
+                      perfilActivo?.nombre ?? loc.perfilPrincipal,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     backgroundColor:
@@ -511,7 +515,7 @@ class _EntrenamientoActivoScreenState
                     avatar:
                         const Icon(Icons.timer, color: Colors.white, size: 18),
                     label: Text(
-                      "TIEMPO RESTANTE: ${tiempoRestanteSeg}s",
+                      loc.tiempoRestante(tiempoRestanteSeg),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -526,7 +530,6 @@ class _EntrenamientoActivoScreenState
                   const SizedBox(height: 16),
                 ],
 
-                // SECCIÓN CENTRAL: CUENTA REGRESIVA O ILUMINACIÓN DE PODS
                 if (enCuentaRegresiva) ...[
                   Container(
                     width: 140,
@@ -558,6 +561,7 @@ class _EntrenamientoActivoScreenState
                         isActive: ledEncendido && podActivoActual == index,
                         activeColor: currentColor,
                         isDark: isDark,
+                        loc: loc,
                       );
                     }),
                   ),
@@ -589,7 +593,7 @@ class _EntrenamientoActivoScreenState
                 const SizedBox(height: 24),
 
                 Text(
-                  estadoTexto,
+                  estadoTexto.isEmpty ? loc.preparate : estadoTexto,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 18,
@@ -622,9 +626,9 @@ class _EntrenamientoActivoScreenState
                   ),
                   child: Column(
                     children: [
-                      const Text(
-                        "ÚLTIMO TIEMPO VÁLIDO",
-                        style: TextStyle(
+                      Text(
+                        loc.ultimoTiempoValido,
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: Colors.grey,
@@ -647,7 +651,7 @@ class _EntrenamientoActivoScreenState
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            "Toques válidos: ${tiemposObtenidos.length}",
+                            loc.toquesValidos(tiemposObtenidos.length),
                             style: TextStyle(
                               fontSize: 13,
                               color:
@@ -664,7 +668,7 @@ class _EntrenamientoActivoScreenState
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                "Errores: $cantidadErrores",
+                                loc.erroresCometidos(cantidadErrores),
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
@@ -687,9 +691,9 @@ class _EntrenamientoActivoScreenState
                     onPressed: finalizarEntrenamiento,
                     icon: const Icon(Icons.stop_circle_outlined,
                         color: Colors.redAccent),
-                    label: const Text(
-                      "FINALIZAR SESIÓN",
-                      style: TextStyle(
+                    label: Text(
+                      loc.finalizarSesion,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Colors.redAccent,
@@ -718,6 +722,7 @@ class _EntrenamientoActivoScreenState
     required bool isActive,
     required Color activeColor,
     required bool isDark,
+    required AppLocalizations loc,
   }) {
     return Material(
       color: Colors.transparent,
@@ -770,7 +775,7 @@ class _EntrenamientoActivoScreenState
               ),
               const SizedBox(height: 2),
               Text(
-                isActive ? "ENCENDIDO" : "POD ${podIndex + 1}",
+                isActive ? loc.encendido : loc.podLabel(podIndex + 1),
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import '../l10n/app_localizations.dart';
 
 class TiemposScreen extends StatefulWidget {
   const TiemposScreen({super.key});
@@ -10,7 +11,7 @@ class TiemposScreen extends StatefulWidget {
 }
 
 class _TiemposScreenState extends State<TiemposScreen> {
-  String _perfilFiltroId = 'todos'; // 'todos', 'principal', o ID de Firebase
+  String _perfilFiltroId = 'todos';
 
   String _formatDate(dynamic timestamp) {
     if (timestamp == null) return "--/--/----";
@@ -27,16 +28,16 @@ class _TiemposScreenState extends State<TiemposScreen> {
     return "$dia/$mes/$anio - $hora:$min hs";
   }
 
-  String _getModoEtiqueta(String? modo) {
+  String _getModoEtiqueta(String? modo, AppLocalizations loc) {
     switch (modo) {
       case 'rondas':
-        return 'Por Rondas';
+        return loc.porRondas;
       case 'tiempo':
-        return 'Por Tiempo';
+        return loc.porTiempo;
       case 'bicolor':
-        return 'Modo Bicolor';
+        return loc.modoBicolor;
       case 'manual':
-        return 'Modo Manual';
+        return loc.modoManual;
       default:
         return 'Entrenamiento';
     }
@@ -57,26 +58,26 @@ class _TiemposScreenState extends State<TiemposScreen> {
     }
   }
 
-  void _editarNotasSesion(String sesionId, String notasActuales) {
+  void _editarNotasSesion(String sesionId, String notasActuales, AppLocalizations loc) {
     final controller = TextEditingController(text: notasActuales);
     final user = FirebaseAuth.instance.currentUser;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Anotaciones de la Sesión'),
+        title: Text(loc.anotacionesDeLaSesion),
         content: TextField(
           controller: controller,
           maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Observaciones de la sesión',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: loc.observacionesDeLaSesion,
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('CANCELAR'),
+            child: Text(loc.cancelar),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -87,22 +88,22 @@ class _TiemposScreenState extends State<TiemposScreen> {
               }
               if (context.mounted) Navigator.pop(context);
             },
-            child: const Text('GUARDAR'),
+            child: Text(loc.guardar),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBarraFiltroUsuarios(User user, bool isDark) {
+  Widget _buildBarraFiltroUsuarios(User user, bool isDark, AppLocalizations loc) {
     return StreamBuilder<DatabaseEvent>(
       stream: FirebaseDatabase.instance
           .ref('usuarios/${user.uid}/perfiles')
           .onValue,
       builder: (context, snapshot) {
-        List<Map<String, String>> perfiles = [
-          {'id': 'todos', 'nombre': 'Todos'},
-          {'id': 'principal', 'nombre': 'Perfil Principal'},
+        List<Map<String, dynamic>> perfiles = [
+          {'id': 'todos', 'nombre': loc.todos},
+          {'id': 'principal', 'nombre': loc.perfilPrincipal},
         ];
 
         if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
@@ -162,21 +163,22 @@ class _TiemposScreenState extends State<TiemposScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final user = FirebaseAuth.instance.currentUser;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Historial de Sesiones'),
+        title: Text(loc.historialSesiones),
         centerTitle: true,
       ),
       body: user == null
-          ? const Center(
-              child: Text("Debés iniciar sesión para ver tu historial."),
+          ? Center(
+              child: Text(loc.historialIniciaSesion),
             )
           : Column(
               children: [
-                _buildBarraFiltroUsuarios(user, isDark),
+                _buildBarraFiltroUsuarios(user, isDark, loc),
                 const Divider(height: 1),
                 Expanded(
                   child: StreamBuilder<DatabaseEvent>(
@@ -199,7 +201,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
                                   color: isDark ? Colors.grey[600] : Colors.grey[400]),
                               const SizedBox(height: 12),
                               Text(
-                                "Aún no tenés sesiones registradas.",
+                                loc.sinSesionesRegistradas,
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -261,7 +263,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
                                   color: isDark ? Colors.grey[600] : Colors.grey[400]),
                               const SizedBox(height: 12),
                               Text(
-                                "No hay sesiones para este usuario.",
+                                loc.noHaySesionesUsuario,
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -314,7 +316,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
                               title: Row(
                                 children: [
                                   Text(
-                                    _getModoEtiqueta(modoStr),
+                                    _getModoEtiqueta(modoStr, loc),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
@@ -330,7 +332,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      "${tiempos.length} toques",
+                                      loc.toquesCount(tiempos.length),
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
@@ -347,7 +349,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
                                   children: [
                                     if (usuarioNombre.isNotEmpty && usuarioNombre != "Uso Personal") ...[
                                       Text(
-                                        "Usuario: $usuarioNombre",
+                                        loc.usuario(usuarioNombre),
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.bold,
@@ -393,19 +395,19 @@ class _TiemposScreenState extends State<TiemposScreen> {
                                             MainAxisAlignment.spaceAround,
                                         children: [
                                           _buildMiniStat(
-                                            label: "Mejor Toque",
+                                            label: loc.mejorToque,
                                             value: mejorTiempo != null
                                                 ? "${mejorTiempo.toStringAsFixed(3)}s"
                                                 : "--",
                                             color: Colors.green,
                                           ),
                                           _buildMiniStat(
-                                            label: "Promedio",
+                                            label: loc.promedio,
                                             value: "${promedio.toStringAsFixed(3)}s",
                                             color: Colors.blueAccent,
                                           ),
                                           _buildMiniStat(
-                                            label: "Errores",
+                                            label: loc.errores,
                                             value: "$errores",
                                             color: errores > 0 ? Colors.redAccent : Colors.grey,
                                           ),
@@ -416,9 +418,9 @@ class _TiemposScreenState extends State<TiemposScreen> {
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          const Text(
-                                            "Anotaciones de la sesión:",
-                                            style: TextStyle(
+                                          Text(
+                                            loc.anotacionesDeLaSesion,
+                                            style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 14,
                                             ),
@@ -428,6 +430,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
                                             onPressed: () => _editarNotasSesion(
                                               sesion['id'],
                                               notas,
+                                              loc,
                                             ),
                                           ),
                                         ],
@@ -435,7 +438,7 @@ class _TiemposScreenState extends State<TiemposScreen> {
                                       Text(
                                         notas.isNotEmpty
                                             ? notas
-                                            : "Sin anotaciones ingresadas.",
+                                            : loc.sinAnotaciones,
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontStyle: notas.isEmpty ? FontStyle.italic : FontStyle.normal,
@@ -445,9 +448,9 @@ class _TiemposScreenState extends State<TiemposScreen> {
                                       const SizedBox(height: 12),
                                       const Divider(),
                                       const SizedBox(height: 8),
-                                      const Text(
-                                        "Desglose por toque válido:",
-                                        style: TextStyle(
+                                      Text(
+                                        loc.desglosePorToqueValido,
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
                                         ),

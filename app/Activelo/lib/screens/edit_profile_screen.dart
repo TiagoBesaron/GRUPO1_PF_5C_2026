@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
+import '../l10n/app_localizations.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -77,7 +78,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  Future<void> _guardarCambios() async {
+  Future<void> _guardarCambios(AppLocalizations loc) async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _cargando = true);
@@ -114,8 +115,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Perfil actualizado correctamente"),
+          SnackBar(
+            content: Text(loc.perfilActualizado),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
@@ -126,8 +127,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       debugPrint("Error al guardar perfil: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Error al actualizar el perfil"),
+          SnackBar(
+            content: Text(loc.errorActualizarPerfil),
             backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
           ),
@@ -140,7 +141,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  Future<void> _enviarCorreoCambioPassword() async {
+  Future<void> _enviarCorreoCambioPassword(AppLocalizations loc) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.email == null) return;
 
@@ -149,8 +150,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                "Enviamos un correo a ${user.email} para restablecer tu contraseña."),
+            content: Text(loc.correoRestablecimientoEnviado(user.email!)),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
@@ -159,8 +159,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Error al enviar el correo de restablecimiento."),
+          SnackBar(
+            content: Text(loc.errorCorreoRestablecimiento),
             backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
           ),
@@ -192,12 +192,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final avatarImage = _getAvatarImage();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Editar Perfil'),
+        title: Text(loc.editarPerfil),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -208,7 +209,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // AVATAR CON OPCIÓN A SUBIR O ELIMINAR FOTO
                 Center(
                   child: GestureDetector(
                     onTap: _seleccionarFoto,
@@ -249,7 +249,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: TextButton(
                     onPressed: _seleccionarFoto,
                     child: Text(
-                      _photoUrl == null ? 'Subir foto de perfil' : 'Cambiar foto de perfil',
+                      _photoUrl == null ? loc.subirFotoPerfil : loc.cambiarFotoPerfil,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.blueAccent,
@@ -267,9 +267,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       },
                       icon: const Icon(Icons.delete_outline,
                           size: 18, color: Colors.redAccent),
-                      label: const Text(
-                        'Eliminar foto',
-                        style: TextStyle(
+                      label: Text(
+                        loc.eliminarFoto,
+                        style: const TextStyle(
                           color: Colors.redAccent,
                           fontWeight: FontWeight.bold,
                         ),
@@ -278,16 +278,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 const SizedBox(height: 16),
 
-                // TARJETA INFORMACIÓN PERSONAL
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'INFORMACIÓN PERSONAL',
-                          style: TextStyle(
+                        Text(
+                          loc.informacionPersonal,
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: Colors.blueAccent,
@@ -300,7 +299,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           textCapitalization: TextCapitalization.words,
                           textInputAction: TextInputAction.done,
                           decoration: InputDecoration(
-                            labelText: "Nombre completo",
+                            labelText: loc.nombreCompleto,
                             prefixIcon: const Icon(Icons.person_outline),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -308,7 +307,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return "El nombre no puede estar vacío";
+                              return loc.errorNombreVacio;
                             }
                             return null;
                           },
@@ -318,13 +317,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           controller: _emailController,
                           enabled: false,
                           decoration: InputDecoration(
-                            labelText: "Correo Electrónico",
+                            labelText: loc.correoElectronico,
                             prefixIcon: const Icon(Icons.email_outlined),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            helperText:
-                                "El correo no se puede modificar directamente.",
+                            helperText: loc.correoNoModificable,
                           ),
                         ),
                       ],
@@ -333,16 +331,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // TARJETA SEGURIDAD
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'SEGURIDAD',
-                          style: TextStyle(
+                        Text(
+                          loc.seguridad,
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: Colors.blueAccent,
@@ -351,7 +348,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Solicitá un enlace por correo para restablecer o cambiar tu contraseña actual.',
+                          loc.solicitarRestablecerContrasena,
                           style: TextStyle(
                             fontSize: 13,
                             color:
@@ -363,12 +360,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           width: double.infinity,
                           height: 48,
                           child: OutlinedButton.icon(
-                            onPressed: _enviarCorreoCambioPassword,
+                            onPressed: () => _enviarCorreoCambioPassword(loc),
                             icon: const Icon(Icons.mark_email_read_outlined,
                                 color: Colors.blueAccent),
-                            label: const Text(
-                              'CAMBIAR CONTRASEÑA',
-                              style: TextStyle(
+                            label: Text(
+                              loc.cambiarContrasena,
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                                 color: Colors.blueAccent,
@@ -388,7 +385,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 const SizedBox(height: 28),
 
-                // BOTÓN GUARDAR
                 SizedBox(
                   height: 52,
                   child: ElevatedButton(
@@ -400,7 +396,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                       elevation: 2,
                     ),
-                    onPressed: _cargando ? null : _guardarCambios,
+                    onPressed: _cargando ? null : () => _guardarCambios(loc),
                     child: _cargando
                         ? const SizedBox(
                             height: 22,
@@ -410,9 +406,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            "GUARDAR CAMBIOS",
-                            style: TextStyle(
+                        : Text(
+                            loc.guardarCambios,
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1,

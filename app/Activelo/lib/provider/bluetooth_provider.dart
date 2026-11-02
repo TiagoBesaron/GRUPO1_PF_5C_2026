@@ -49,10 +49,23 @@ class BluetoothState {
 }
 
 class BluetoothNotifier extends StateNotifier<BluetoothState> {
-  BluetoothNotifier() : super(const BluetoothState());
+  BluetoothNotifier() : super(const BluetoothState()) {
+    _escucharEstadoAdapter();
+  }
 
   StreamSubscription<BluetoothConnectionState>? _connectionStateSub;
   StreamSubscription<List<int>>? _notifySubscription;
+  StreamSubscription<BluetoothAdapterState>? _adapterStateSub;
+
+  // Monitor constante del Bluetooth de la Tablet/Celular
+  void _escucharEstadoAdapter() {
+    _adapterStateSub = FlutterBluePlus.adapterState.listen((adapterState) {
+      if (adapterState != BluetoothAdapterState.on && state.conectado) {
+        debugPrint("Bluetooth desactivado en la tablet. Desconectando...");
+        desconectar();
+      }
+    });
+  }
 
   Future<void> conectar(BluetoothDevice device) async {
     await desconectar();
@@ -61,9 +74,10 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
       // Intentar conexión
       await device.connect(timeout: const Duration(seconds: 6));
 
-      // Escuchar estado de conexión física
+      // Escuchar estado de conexión física en tiempo real
       _connectionStateSub = device.connectionState.listen((connState) {
         if (connState == BluetoothConnectionState.disconnected) {
+          debugPrint("Dispositivo desconectado detectado por connectionState stream.");
           _limpiarEstado();
         }
       });
@@ -85,39 +99,43 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
               }
 
               await _notifySubscription?.cancel();
-              _notifySubscription = char.onValueReceived.listen((value) async {
-                String mensaje = utf8.decode(value).trim();
-                debugPrint("Notificación BLE recibida: $mensaje");
+              _notifySubscription = char.onValueReceived.listen(
+                (value) async {
+                  String mensaje = utf8.decode(value).trim();
+                  debugPrint("Notificación BLE recibida: $mensaje");
 
-                // Permite procesar formatos como "REACCION:350", "REACCION:1:350", "REACCION_1:350", etc.
-                if (mensaje.toUpperCase().contains("REACCION")) {
-                  final matches = RegExp(r'\d+').allMatches(mensaje);
-                  if (matches.isNotEmpty) {
-                    // El último número de la cadena corresponde a los milisegundos de reacción
-                    int ms = int.tryParse(matches.last.group(0)!) ?? 0;
+                  if (mensaje.toUpperCase().contains("REACCION")) {
+                    final matches = RegExp(r'\d+').allMatches(mensaje);
+                    if (matches.isNotEmpty) {
+                      int ms = int.tryParse(matches.last.group(0)!) ?? 0;
 
-                    if (ms > 0) {
-                      double segundos = ms / 1000.0;
+                      if (ms > 0) {
+                        double segundos = ms / 1000.0;
 
-                      state = state.copyWith(
-                        ultimoTiempo: "${segundos.toStringAsFixed(3)} s",
-                        reactionTicket: state.reactionTicket + 1,
-                      );
+                        state = state.copyWith(
+                          ultimoTiempo: "${segundos.toStringAsFixed(3)} s",
+                          reactionTicket: state.reactionTicket + 1,
+                        );
 
-                      final user = FirebaseAuth.instance.currentUser;
-                      if (user != null) {
-                        final ref = FirebaseDatabase.instance
-                            .ref("usuarios/${user.uid}/tiempos");
-                        await ref.push().set({
-                          "tiempoMs": ms,
-                          "tiempoSeg": segundos,
-                          "timestamp": ServerValue.timestamp,
-                        });
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user != null) {
+                          final ref = FirebaseDatabase.instance
+                              .ref("usuarios/${user.uid}/tiempos");
+                          await ref.push().set({
+                            "tiempoMs": ms,
+                            "tiempoSeg": segundos,
+                            "timestamp": ServerValue.timestamp,
+                          });
+                        }
                       }
                     }
                   }
-                }
-              });
+                },
+                onError: (e) {
+                  debugPrint("Error en canal de notificaciones BLE: $e");
+                  desconectar();
+                },
+              );
             }
             if (char.uuid == characteristicUuidRx) {
               rxChar = char;
@@ -140,10 +158,13 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
   Future<void> enviarComando(String comando) async {
     try {
       if (state.conectado && state.characteristicRx != null) {
-        await state.characteristicRx!.write(utf8.encode(comando));
+        await state.characteristicRx!
+            .write(utf8.encode(comando))
+            .timeout(const Duration(seconds: 3));
       }
     } catch (e) {
-      debugPrint("Error al enviar comando BLE: $e");
+      debugPrint("Fallo al escribir comando BLE (Pod posiblemente apagado): $e");
+      await desconectar();
     }
   }
 
@@ -171,6 +192,7 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
 
   @override
   void dispose() {
+    _adapterStateSub?.cancel();
     _notifySubscription?.cancel();
     _connectionStateSub?.cancel();
     super.dispose();

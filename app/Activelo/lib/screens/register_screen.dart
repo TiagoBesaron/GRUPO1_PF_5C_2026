@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:go_router/go_router.dart';
+import '../l10n/app_localizations.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -63,7 +64,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _crearCuenta() async {
+  Future<void> _crearCuenta(AppLocalizations loc) async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -92,11 +93,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } on FirebaseAuthException catch (e) {
       String mensaje = 'Error al crear la cuenta';
       if (e.code == 'weak-password') {
-        mensaje = 'La contraseña debe tener al menos 6 caracteres.';
+        mensaje = loc.errorContrasenaCorta;
       } else if (e.code == 'email-already-in-use') {
         mensaje = 'Este correo electrónico ya está registrado.';
       } else if (e.code == 'invalid-email') {
-        mensaje = 'El correo electrónico no es válido.';
+        mensaje = loc.errorCorreoInvalido;
       }
 
       if (mounted) {
@@ -155,6 +156,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -163,7 +166,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         toolbarHeight: 40,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          tooltip: 'Volver al Inicio de Sesión',
+          tooltip: loc.volverAlInicioSesion,
           onPressed: () {
             if (context.canPop()) {
               context.pop();
@@ -202,9 +205,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'ACTIVELO',
-                      style: TextStyle(
+                    Text(
+                      loc.appTitle.toUpperCase(),
+                      style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                         color: Color(0xFF3B82F6),
@@ -213,7 +216,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Crea tu cuenta para guardar tus entrenamientos',
+                      loc.subtituloRegistro,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[600],
@@ -228,12 +231,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _nombreController,
                   textCapitalization: TextCapitalization.words,
                   decoration: _inputDecoration(
-                    label: 'Nombre Completo',
+                    label: loc.nombreCompleto,
                     icon: Icons.person_outline,
                   ),
                   validator: (val) {
                     if (val == null || val.trim().isEmpty) {
-                      return 'Ingresá tu nombre completo';
+                      return loc.errorNombreVacio;
                     }
                     return null;
                   },
@@ -245,12 +248,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   readOnly: true,
                   onTap: () => _selectDate(context),
                   decoration: _inputDecoration(
-                    label: 'Fecha de Nacimiento',
+                    label: loc.fechaNacimiento,
                     icon: Icons.cake_outlined,
                   ),
                   validator: (val) {
                     if (val == null || val.isEmpty) {
-                      return 'Selecciona tu fecha de nacimiento';
+                      return loc.errorFechaNacimiento;
                     }
                     return null;
                   },
@@ -261,15 +264,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: _inputDecoration(
-                    label: 'Correo Electrónico',
+                    label: loc.correoElectronico,
                     icon: Icons.email_outlined,
                   ),
                   validator: (val) {
                     if (val == null || val.trim().isEmpty) {
-                      return 'Ingresá un correo electrónico';
+                      return loc.errorCorreoVacio;
                     }
                     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
-                      return 'Ingresá un correo válido';
+                      return loc.errorCorreoInvalido;
                     }
                     return null;
                   },
@@ -280,7 +283,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: _inputDecoration(
-                    label: 'Contraseña',
+                    label: loc.contrasena,
                     icon: Icons.lock_outline,
                     suffixIcon: IconButton(
                       iconSize: 20,
@@ -295,10 +298,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   validator: (val) {
                     if (val == null || val.isEmpty) {
-                      return 'Ingresá una contraseña';
+                      return loc.errorContrasenaVacia;
                     }
                     if (val.length < 6) {
-                      return 'Mínimo 6 caracteres';
+                      return loc.errorContrasenaCorta;
                     }
                     return null;
                   },
@@ -309,7 +312,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
                   decoration: _inputDecoration(
-                    label: 'Confirmar Contraseña',
+                    label: loc.confirmarContrasena,
                     icon: Icons.lock_reset_outlined,
                     suffixIcon: IconButton(
                       iconSize: 20,
@@ -324,10 +327,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   validator: (val) {
                     if (val == null || val.isEmpty) {
-                      return 'Confirmá tu contraseña';
+                      return loc.errorContrasenaVacia;
                     }
                     if (val != _passwordController.text) {
-                      return 'Las contraseñas no coinciden';
+                      return loc.errorContrasenasNoCoinciden;
                     }
                     return null;
                   },
@@ -346,7 +349,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onPressed: _isLoading ? null : _crearCuenta,
+                    onPressed: _isLoading ? null : () => _crearCuenta(loc),
                     child: _isLoading
                         ? const SizedBox(
                             height: 22,
@@ -356,9 +359,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               strokeWidth: 2.5,
                             ),
                           )
-                        : const Text(
-                            'CREAR CUENTA',
-                            style: TextStyle(
+                        : Text(
+                            loc.crearCuenta,
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.1,

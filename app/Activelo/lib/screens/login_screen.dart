@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:go_router/go_router.dart';
+import '../l10n/app_localizations.dart';
+import '../provider/locale_provider.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nombreController = TextEditingController();
   final _emailController = TextEditingController();
@@ -21,17 +24,30 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  Future<void> _seleccionarFechaNacimiento() async {
+  final Map<String, String> _idiomasSoportados = const {
+    'es': 'Español',
+    'en': 'English',
+    'fr': 'Français',
+    'it': 'Italiano',
+    'de': 'Deutsch',
+    'pt': 'Português',
+    'he': 'עברית',
+    'ar': 'العربية',
+    'ja': '日本語',
+    'zh': '中文',
+  };
+
+  Future<void> _seleccionarFechaNacimiento(AppLocalizations loc) async {
     final now = DateTime.now();
     final fecha = await showDatePicker(
       context: context,
       initialDate: DateTime(now.year - 20),
       firstDate: DateTime(1900),
       lastDate: now,
-      locale: const Locale('es', 'ES'),
-      helpText: 'SELECCIONÁ TU FECHA DE NACIMIENTO',
-      cancelText: 'CANCELAR',
-      confirmText: 'ACEPTAR',
+      locale: Locale(ref.read(localeProvider).languageCode),
+      helpText: loc.seleccionaTuFechaNacimiento,
+      cancelText: loc.cancelar,
+      confirmText: loc.guardar,
     );
 
     if (fecha != null) {
@@ -41,13 +57,13 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit(AppLocalizations loc) async {
     if (!_formKey.currentState!.validate()) return;
 
     if (_isRegistering && _fechaNacimiento == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor, seleccioná tu fecha de nacimiento.'),
+        SnackBar(
+          content: Text(loc.errorFechaNacimiento),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         ),
@@ -96,9 +112,9 @@ class _LoginScreenState extends State<LoginScreen> {
         } else if (e.code == 'email-already-in-use') {
           mensaje = "El correo ya se encuentra registrado.";
         } else if (e.code == 'weak-password') {
-          mensaje = "La contraseña debe tener al menos 6 caracteres.";
+          mensaje = loc.errorContrasenaCorta;
         } else if (e.code == 'invalid-email') {
-          mensaje = "Formato de correo inválido.";
+          mensaje = loc.errorCorreoInvalido;
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -136,6 +152,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final currentLocale = ref.watch(localeProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -151,6 +169,50 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // DESPLEGABLE DE IDIOMAS EN LA ESQUINA SUPERIOR DERECHA
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF2C2C2C) : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.language, size: 18, color: Colors.blueAccent),
+                            const SizedBox(width: 6),
+                            DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: currentLocale.languageCode,
+                                isDense: true,
+                                icon: const Icon(Icons.arrow_drop_down, size: 20),
+                                items: _idiomasSoportados.entries.map((entry) {
+                                  return DropdownMenuItem<String>(
+                                    value: entry.key,
+                                    child: Text(
+                                      entry.value,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (langCode) {
+                                  if (langCode != null) {
+                                    ref.read(localeProvider.notifier).cambiarIdioma(langCode);
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
                     Center(
                       child: SizedBox(
                         width: 140,
@@ -167,10 +229,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'ACTIVELO',
+                    Text(
+                      loc.appTitle.toUpperCase(),
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 2,
@@ -179,9 +241,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _isRegistering
-                          ? 'Crea tu cuenta para guardar tus entrenamientos'
-                          : 'Inicia sesión para comenzar tu rutina',
+                      _isRegistering ? loc.subtituloRegistro : loc.subtituloLogin,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -196,7 +256,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
                         decoration: InputDecoration(
-                          labelText: 'Nombre Completo',
+                          labelText: loc.nombreCompleto,
                           prefixIcon: const Icon(Icons.person_outline),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -204,7 +264,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         validator: (value) {
                           if (_isRegistering && (value == null || value.trim().isEmpty)) {
-                            return 'Ingresá tu nombre completo';
+                            return loc.errorNombreVacio;
                           }
                           return null;
                         },
@@ -212,11 +272,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 16),
 
                       InkWell(
-                        onTap: _seleccionarFechaNacimiento,
+                        onTap: () => _seleccionarFechaNacimiento(loc),
                         borderRadius: BorderRadius.circular(12),
                         child: InputDecorator(
                           decoration: InputDecoration(
-                            labelText: 'Fecha de Nacimiento',
+                            labelText: loc.fechaNacimiento,
                             prefixIcon: const Icon(Icons.cake_outlined),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -225,7 +285,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text(
                             _fechaNacimiento != null
                                 ? "${_fechaNacimiento!.day.toString().padLeft(2, '0')}/${_fechaNacimiento!.month.toString().padLeft(2, '0')}/${_fechaNacimiento!.year}"
-                                : 'Seleccionar fecha',
+                                : loc.seleccionarFecha,
                             style: TextStyle(
                               color: _fechaNacimiento != null
                                   ? (isDark ? Colors.white : Colors.black87)
@@ -242,7 +302,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
-                        labelText: 'Correo Electrónico',
+                        labelText: loc.correoElectronico,
                         prefixIcon: const Icon(Icons.email_outlined),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -250,10 +310,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Ingresá tu correo electrónico';
+                          return loc.errorCorreoVacio;
                         }
                         if (!value.contains('@')) {
-                          return 'Ingresá un correo válido';
+                          return loc.errorCorreoInvalido;
                         }
                         return null;
                       },
@@ -264,9 +324,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _submit(),
+                      onFieldSubmitted: (_) => _submit(loc),
                       decoration: InputDecoration(
-                        labelText: 'Contraseña',
+                        labelText: loc.contrasena,
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -286,10 +346,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Ingresá tu contraseña';
+                          return loc.errorContrasenaVacia;
                         }
                         if (value.length < 6) {
-                          return 'La contraseña debe tener al menos 6 caracteres';
+                          return loc.errorContrasenaCorta;
                         }
                         return null;
                       },
@@ -307,7 +367,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           elevation: 2,
                         ),
-                        onPressed: _isLoading ? null : _submit,
+                        onPressed: _isLoading ? null : () => _submit(loc),
                         child: _isLoading
                             ? const SizedBox(
                                 width: 24,
@@ -318,7 +378,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               )
                             : Text(
-                                _isRegistering ? 'CREAR CUENTA' : 'INICIAR SESIÓN',
+                                _isRegistering ? loc.crearCuenta : loc.iniciarSesion,
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -334,9 +394,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          _isRegistering
-                              ? 'Al registrarte, aceptás nuestros '
-                              : 'Al ingresar, aceptás nuestros ',
+                          _isRegistering ? loc.alRegistrarteAceptas : loc.alIngresarAceptas,
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -344,9 +402,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         GestureDetector(
                           onTap: () => context.push('/terminos-privacidad'),
-                          child: const Text(
-                            'Términos y Privacidad',
-                            style: TextStyle(
+                          child: Text(
+                            loc.terminosYPrivacidad,
+                            style: const TextStyle(
                               fontSize: 12,
                               color: Colors.blueAccent,
                               fontWeight: FontWeight.bold,
@@ -362,9 +420,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          _isRegistering
-                              ? '¿Ya tenés una cuenta?'
-                              : '¿No tenés una cuenta?',
+                          _isRegistering ? loc.yaTenesCuenta : loc.noTenesCuenta,
                           style: TextStyle(
                             color: isDark ? Colors.grey[400] : Colors.grey[600],
                           ),
@@ -377,7 +433,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             });
                           },
                           child: Text(
-                            _isRegistering ? 'Iniciar Sesión' : 'Registrate',
+                            _isRegistering ? loc.iniciarSesion : loc.registrate,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.blueAccent,

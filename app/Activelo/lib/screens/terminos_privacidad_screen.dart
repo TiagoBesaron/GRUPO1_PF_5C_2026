@@ -1,44 +1,46 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 
 class TerminosPrivacidadScreen extends StatelessWidget {
   const TerminosPrivacidadScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text(
-            'Legales y Privacidad',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          title: Text(
+            loc.legalesYPrivacidad,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           centerTitle: true,
           backgroundColor: Colors.blueAccent,
           iconTheme: const IconThemeData(color: Colors.white),
-          bottom: const TabBar(
+          bottom: TabBar(
             indicatorColor: Colors.white,
             indicatorWeight: 3,
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
-            labelStyle: TextStyle(
+            labelStyle: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
             ),
-            unselectedLabelStyle: TextStyle(
+            unselectedLabelStyle: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.normal,
             ),
             tabs: [
               Tab(
-                text: 'Términos de Uso',
-                icon: Icon(Icons.description_outlined),
+                text: loc.terminosDeUso,
+                icon: const Icon(Icons.description_outlined),
               ),
               Tab(
-                text: 'Privacidad',
-                icon: Icon(Icons.security_outlined),
+                text: loc.privacidad,
+                icon: const Icon(Icons.security_outlined),
               ),
             ],
           ),
@@ -47,11 +49,11 @@ class TerminosPrivacidadScreen extends StatelessWidget {
           children: [
             _buildSection(
               isDark: isDark,
-              child: const _TerminosDeUsoContent(),
+              child: _TerminosDeUsoContent(loc: loc),
             ),
             _buildSection(
               isDark: isDark,
-              child: const _PoliticaPrivacidadContent(),
+              child: _PoliticaPrivacidadContent(loc: loc),
             ),
           ],
         ),
@@ -78,92 +80,70 @@ class TerminosPrivacidadScreen extends StatelessWidget {
 }
 
 class _TerminosDeUsoContent extends StatelessWidget {
-  const _TerminosDeUsoContent();
+  final AppLocalizations loc;
+  const _TerminosDeUsoContent({required this.loc});
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Términos y Condiciones de Uso',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          loc.terminosYCondicionesDeUso,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Text(
-          'Última actualización: 2026',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          loc.ultimaActualizacion,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
         ),
-        Divider(height: 24),
-        _TituloSeccion('1. Aceptación de los Términos'),
-        _TextoParrafo(
-          'Al descargar, registrarte o utilizar la aplicación Activelo, aceptas quedar vinculado por estos Términos y Condiciones. Si no estás de acuerdo con alguno de ellos, debes abstenerte de utilizar la plataforma.',
-        ),
-        _TituloSeccion('2. Descripción del Servicio'),
-        _TextoParrafo(
-          'Activelo es una plataforma diseñada para la configuración, control y seguimiento de rutinas de entrenamiento físico y agilidad mediante interacción con dispositivos interactivos inalámbricos.',
-        ),
-        _TituloSeccion('3. Cuentas de Usuario'),
-        _TextoParrafo(
-          'Para acceder a la sincronización de tu historial y estadísticas de rendimiento, debes registrar una cuenta con un correo electrónico válido. Eres el único responsable de mantener la confidencialidad de tus credenciales.',
-        ),
-        _TituloSeccion('4. Responsabilidad y Salud Física'),
-        _TextoParrafo(
-          'El uso de la aplicación implica la realización de actividad física. Activelo no proporciona asesoramiento médico. Se recomienda realizar una entrada en calor adecuada y suspender el entrenamiento ante cualquier molestia física.',
-        ),
-        _TituloSeccion('5. Uso del Hardware e Interacción Inalámbrica'),
-        _TextoParrafo(
-          'La app requiere conectividad inalámbrica para operar con los pods de entrenamiento. El usuario es responsable de operar los dispositivos en un entorno seguro y adecuado.',
-        ),
-        _TituloSeccion('6. Modificaciones de la Plataforma'),
-        _TextoParrafo(
-          'Nos reservamos el derecho de modificar o discontinuar funciones del servicio, así como de actualizar estos términos en cualquier momento.',
-        ),
+        const Divider(height: 24),
+        _TituloSeccion(loc.tituloTerminos1),
+        _TextoParrafo(loc.textoTerminos1),
+        _TituloSeccion(loc.tituloTerminos2),
+        _TextoParrafo(loc.textoTerminos2),
+        _TituloSeccion(loc.tituloTerminos3),
+        _TextoParrafo(loc.textoTerminos3),
+        _TituloSeccion(loc.tituloTerminos4),
+        _TextoParrafo(loc.textoTerminos4),
+        _TituloSeccion(loc.tituloTerminos5),
+        _TextoParrafo(loc.textoTerminos5),
+        _TituloSeccion(loc.tituloTerminos6),
+        _TextoParrafo(loc.textoTerminos6),
       ],
     );
   }
 }
 
 class _PoliticaPrivacidadContent extends StatelessWidget {
-  const _PoliticaPrivacidadContent();
+  final AppLocalizations loc;
+  const _PoliticaPrivacidadContent({required this.loc});
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Política de Privacidad',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          loc.politicaPrivacidad,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Text(
-          'Última actualización: 2026',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          loc.ultimaActualizacion,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
         ),
-        Divider(height: 24),
-        _TituloSeccion('1. Información Recopilada'),
-        _TextoParrafo(
-          'Únicamente recopilamos los datos esenciales para prestar el servicio:\n'
-          '• Datos de identificación: Correo electrónico de registro.\n'
-          '• Métricas de entrenamiento: Tiempos de reacción, cantidad de toques, modos utilizados y fechas de cada sesión.',
-        ),
-        _TituloSeccion('2. Permisos Requeridos'),
-        _TextoParrafo(
-          'Para vincular y transmitir las rutinas a los dispositivos de entrenamiento, la aplicación solicitará permisos de conexión inalámbrica (Bluetooth) y ubicación en los casos exigidos por el sistema operativo.',
-        ),
-        _TituloSeccion('3. Uso de la Información'),
-        _TextoParrafo(
-          'Los datos almacenados se utilizan exclusivamente para permitir el acceso a tu cuenta, calcular tus estadísticas de rendimiento personal y mostrarte tu historial de progreso.',
-        ),
-        _TituloSeccion('4. Protección de Datos'),
-        _TextoParrafo(
-          'Implementamos medidas de seguridad para proteger tu información almacenada en la nube. No vendemos ni compartimos tus datos personales con terceros para fines comerciales o publicitarios.',
-        ),
-        _TituloSeccion('5. Eliminación de Datos'),
-        _TextoParrafo(
-          'Tienes derecho a solicitar la baja definitiva de tu cuenta y la eliminación total de tus registros de entrenamiento en cualquier momento.',
-        ),
+        const Divider(height: 24),
+        _TituloSeccion(loc.tituloPrivacidad1),
+        _TextoParrafo(loc.textoPrivacidad1),
+        _TituloSeccion(loc.tituloPrivacidad2),
+        _TextoParrafo(loc.textoPrivacidad2),
+        _TituloSeccion(loc.tituloPrivacidad3),
+        _TextoParrafo(loc.textoPrivacidad3),
+        _TituloSeccion(loc.tituloPrivacidad4),
+        _TextoParrafo(loc.textoPrivacidad4),
+        _TituloSeccion(loc.tituloPrivacidad5),
+        _TextoParrafo(loc.textoPrivacidad5),
       ],
     );
   }

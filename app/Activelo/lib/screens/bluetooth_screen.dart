@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import '../l10n/app_localizations.dart';
 import '../provider/bluetooth_provider.dart';
 
 class BluetoothScreen extends ConsumerStatefulWidget {
@@ -23,7 +24,6 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
   void initState() {
     super.initState();
 
-    // Escuchamos los resultados del escáner en ambas plataformas
     _scanSubscription = FlutterBluePlus.scanResults.listen(
       (results) {
         if (mounted) {
@@ -35,7 +35,6 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
       onError: (e) => debugPrint("Error en stream scanResults: $e"),
     );
 
-    // En celulares (Android/iOS) escuchamos el estado nativo
     if (!kIsWeb) {
       _isScanningSubscription = FlutterBluePlus.isScanning.listen((scanning) {
         if (mounted) {
@@ -58,14 +57,12 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
     });
 
     try {
-      // Solo en móviles detenemos escaneos previos
       if (!kIsWeb && FlutterBluePlus.isScanningNow) {
         try {
           await FlutterBluePlus.stopScan();
         } catch (_) {}
       }
 
-      // Iniciar búsqueda
       await FlutterBluePlus.startScan(
         withServices: [Guid("4fa8691a-0393-40a3-974f-0759e09f114d")],
         timeout: const Duration(seconds: 8),
@@ -77,10 +74,8 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
         });
       }
     } catch (e) {
-      // Capturamos la cancelación de Chrome sin romper la ejecución
       debugPrint('Escaneo finalizado o cancelado por el usuario: $e');
     } finally {
-      // Apaga el indicador de carga SIEMPRE en la interfaz
       if (mounted) {
         setState(() {
           isScanning = false;
@@ -90,14 +85,12 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
   }
 
   Future<void> _stopScan() async {
-    // 1. Reseteamos el estado visual de la app inmediatamente
     if (mounted) {
       setState(() {
         isScanning = false;
       });
     }
 
-    // 2. En Web NO llamamos a stopScan() para evitar el error "already stopped"
     if (!kIsWeb) {
       try {
         if (FlutterBluePlus.isScanningNow) {
@@ -109,7 +102,7 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
     }
   }
 
-  Future<void> _conectarDispositivo(BluetoothDevice device) async {
+  Future<void> _conectarDispositivo(BluetoothDevice device, AppLocalizations loc) async {
     await _stopScan();
     if (mounted) {
       setState(() => isConnecting = true);
@@ -118,10 +111,10 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
     try {
       await ref.read(bluetoothProvider.notifier).conectar(device);
       if (mounted) {
+        final nombre = device.platformName.isNotEmpty ? device.platformName : 'ESP32';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                "¡Conectado exitosamente a ${device.platformName.isNotEmpty ? device.platformName : 'ESP32'}!"),
+            content: Text(loc.conectadoExitosamente(nombre)),
             backgroundColor: Colors.green,
           ),
         );
@@ -130,7 +123,7 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Error al conectar: $e"),
+            content: Text(loc.errorAlConectar(e.toString())),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -142,12 +135,12 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
     }
   }
 
-  Future<void> _desconectarDispositivo() async {
+  Future<void> _desconectarDispositivo(AppLocalizations loc) async {
     await ref.read(bluetoothProvider.notifier).desconectar();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Dispositivo desconectado"),
+        SnackBar(
+          content: Text(loc.dispositivoDesconectado),
           backgroundColor: Colors.orange,
         ),
       );
@@ -170,12 +163,13 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final btState = ref.watch(bluetoothProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Conectar Bluetooth'),
+        title: Text(loc.conectarBluetooth),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -205,8 +199,8 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
                         backgroundColor: Colors.redAccent,
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: _desconectarDispositivo,
-                      child: const Text('Desconectar'),
+                      onPressed: () => _desconectarDispositivo(loc),
+                      child: Text(loc.desconectar),
                     ),
                   ),
                 ),
@@ -224,9 +218,9 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
                   ),
                 ),
 
-              const Text(
-                "Dispositivos disponibles:",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Text(
+                loc.dispositivosDisponibles,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 8),
 
@@ -235,8 +229,8 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
                     ? Center(
                         child: Text(
                           isScanning
-                              ? 'Buscando pods cercanos...'
-                              : 'Presioná el botón de abajo para buscar pods.',
+                              ? loc.buscandoPods
+                              : loc.presionaBotonBuscar,
                           style: TextStyle(
                             color: isDark ? Colors.grey[400] : Colors.grey[600],
                           ),
@@ -271,8 +265,8 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
                                 ),
                                 onPressed: isConnecting || isThisConnected
                                     ? null
-                                    : () => _conectarDispositivo(device),
-                                child: Text(isThisConnected ? 'Conectado' : 'Conectar'),
+                                    : () => _conectarDispositivo(device, loc),
+                                child: Text(isThisConnected ? loc.conectado : loc.conectar),
                               ),
                             ),
                           );
@@ -296,7 +290,7 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
                   icon: Icon(isScanning ? Icons.close : Icons.search),
                   onPressed: isScanning ? _stopScan : _startScan,
                   label: Text(
-                    isScanning ? 'CANCELAR BÚSQUEDA' : 'BUSCAR DISPOSITIVOS',
+                    isScanning ? loc.cancelarBusqueda : loc.buscarDispositivos,
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,

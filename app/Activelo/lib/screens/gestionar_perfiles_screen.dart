@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:file_picker/file_picker.dart';
+import '../l10n/app_localizations.dart';
 import '../provider/perfil_provider.dart';
 
 class GestionarPerfilesScreen extends ConsumerStatefulWidget {
@@ -42,19 +43,19 @@ class _GestionarPerfilesScreenState
     return null;
   }
 
-  Future<void> _confirmarEliminarPerfil(String id, String nombre) async {
+  Future<void> _confirmarEliminarPerfil(String id, String nombre, AppLocalizations loc) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Eliminar Usuario'),
-        content: Text('¿Estás seguro de que deseas eliminar el perfil de "$nombre"?'),
+        title: Text(loc.eliminarUsuario),
+        content: Text(loc.confirmarEliminarUsuario(nombre)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx, false),
-            child: const Text('CANCELAR'),
+            child: Text(loc.cancelar),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -62,7 +63,7 @@ class _GestionarPerfilesScreenState
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(dialogCtx, true),
-            child: const Text('ELIMINAR'),
+            child: Text(loc.eliminar),
           ),
         ],
       ),
@@ -80,7 +81,8 @@ class _GestionarPerfilesScreenState
     }
   }
 
-  void _mostrarDialogoNuevoPerfil([
+  void _mostrarDialogoNuevoPerfil(
+    AppLocalizations loc, [
     String? id,
     String? nombreActual,
     String? notasActuales,
@@ -103,7 +105,7 @@ class _GestionarPerfilesScreenState
                 borderRadius: BorderRadius.circular(16),
               ),
               title: Text(
-                id == null ? 'Nuevo Usuario' : 'Editar Usuario',
+                id == null ? loc.nuevoUsuario : loc.editarUsuario,
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               content: SingleChildScrollView(
@@ -162,7 +164,7 @@ class _GestionarPerfilesScreenState
                       },
                       icon: const Icon(Icons.upload_file, size: 18),
                       label: Text(
-                        fotoTemporal == null ? 'Subir foto' : 'Cambiar foto',
+                        fotoTemporal == null ? loc.subirFoto : loc.cambiarFoto,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       style: OutlinedButton.styleFrom(
@@ -184,9 +186,9 @@ class _GestionarPerfilesScreenState
                         },
                         icon: const Icon(Icons.delete_outline,
                             size: 18, color: Colors.redAccent),
-                        label: const Text(
-                          'Eliminar foto',
-                          style: TextStyle(
+                        label: Text(
+                          loc.eliminarFoto,
+                          style: const TextStyle(
                             color: Colors.redAccent,
                             fontWeight: FontWeight.bold,
                           ),
@@ -198,20 +200,20 @@ class _GestionarPerfilesScreenState
                     TextField(
                       controller: nombreController,
                       textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre Completo',
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: loc.nombreCompleto,
+                        prefixIcon: const Icon(Icons.person_outline),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 12),
 
                     TextField(
                       controller: notasController,
-                      decoration: const InputDecoration(
-                        labelText: 'Notas / Observaciones',
-                        prefixIcon: Icon(Icons.notes),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: loc.notasObservaciones,
+                        prefixIcon: const Icon(Icons.notes),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                   ],
@@ -220,7 +222,7 @@ class _GestionarPerfilesScreenState
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('CANCELAR'),
+                  child: Text(loc.cancelar),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -252,7 +254,7 @@ class _GestionarPerfilesScreenState
 
                     if (context.mounted) Navigator.pop(context);
                   },
-                  child: const Text('GUARDAR'),
+                  child: Text(loc.guardar),
                 ),
               ],
             );
@@ -353,7 +355,7 @@ class _GestionarPerfilesScreenState
     };
   }
 
-  Widget _buildGridMetricas(Map<String, dynamic> stats, bool isDark) {
+  Widget _buildGridMetricas(Map<String, dynamic> stats, bool isDark, AppLocalizations loc) {
     String fmt(num? val) =>
         (val != null && val > 0) ? "${val.toStringAsFixed(3)} s" : "-- s";
 
@@ -373,7 +375,7 @@ class _GestionarPerfilesScreenState
             children: [
               Expanded(
                 child: _buildItemMetrica(
-                  label: "Mejor Promedio",
+                  label: loc.mejorPromedio,
                   value: fmt(stats['mejorPromedio']),
                   icon: Icons.star,
                   color: Colors.amber,
@@ -382,7 +384,7 @@ class _GestionarPerfilesScreenState
               const SizedBox(width: 8),
               Expanded(
                 child: _buildItemMetrica(
-                  label: "Mejor Tiempo",
+                  label: loc.mejorTiempo,
                   value: fmt(stats['mejorTiempo']),
                   icon: Icons.bolt,
                   color: Colors.orangeAccent,
@@ -395,7 +397,7 @@ class _GestionarPerfilesScreenState
             children: [
               Expanded(
                 child: _buildItemMetrica(
-                  label: "Mejor (Últ. Sesión)",
+                  label: loc.mejorUltimaSesion,
                   value: fmt(stats['mejorTiempoUltima']),
                   icon: Icons.timer,
                   color: Colors.green,
@@ -404,7 +406,7 @@ class _GestionarPerfilesScreenState
               const SizedBox(width: 8),
               Expanded(
                 child: _buildItemMetrica(
-                  label: "Prom. (Últ. Sesión)",
+                  label: loc.promedioUltimaSesion,
                   value: fmt(stats['promedioUltima']),
                   icon: Icons.bar_chart,
                   color: Colors.blueAccent,
@@ -457,24 +459,25 @@ class _GestionarPerfilesScreenState
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final user = FirebaseAuth.instance.currentUser;
     final perfilActivo = ref.watch(perfilActivoProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gestión de Usuarios'),
+        title: Text(loc.gestionDeUsuarios),
         centerTitle: true,
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: Colors.blueAccent,
         foregroundColor: Colors.white,
-        onPressed: () => _mostrarDialogoNuevoPerfil(),
+        onPressed: () => _mostrarDialogoNuevoPerfil(loc),
         icon: const Icon(Icons.person_add),
-        label: const Text('Agregar'),
+        label: Text(loc.agregar),
       ),
       body: user == null
-          ? const Center(child: Text('Iniciá sesión para gestionar perfiles.'))
+          ? Center(child: Text(loc.iniciaSesionParaGestionar))
           : StreamBuilder<DatabaseEvent>(
               stream: FirebaseDatabase.instance
                   .ref('usuarios/${user.uid}')
@@ -500,7 +503,7 @@ class _GestionarPerfilesScreenState
                     String nombrePrincipal =
                         user.displayName?.trim().isNotEmpty == true
                             ? user.displayName!
-                            : 'Perfil Principal (Propietario)';
+                            : loc.perfilPrincipalPropietario;
                     String? photoUrlPrincipal = user.photoURL;
 
                     final List<Map<String, dynamic>> perfilesSecundarios = [];
@@ -526,7 +529,7 @@ class _GestionarPerfilesScreenState
                             if (value is Map) {
                               perfilesSecundarios.add({
                                 'id': key,
-                                'nombre': value['nombre'] ?? 'Sin nombre',
+                                'nombre': value['nombre'] ?? loc.sinNombre,
                                 'notas': value['notas'] ?? '',
                                 'photoUrl': value['photoUrl'],
                               });
@@ -541,7 +544,7 @@ class _GestionarPerfilesScreenState
                         'id': 'principal',
                         'esPrincipal': true,
                         'nombre': nombrePrincipal,
-                        'notas': 'Cuenta Principal',
+                        'notas': loc.cuentaPrincipal,
                         'photoUrl': photoUrlPrincipal,
                       },
                       ...perfilesSecundarios.map((p) => {
@@ -568,7 +571,7 @@ class _GestionarPerfilesScreenState
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'Seleccioná el usuario que entrenará en esta sesión.',
+                                  loc.instruccionGestionUsuarios,
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: isDark
@@ -646,8 +649,8 @@ class _GestionarPerfilesScreenState
                                       ),
                                       subtitle: Text(
                                         esPrincipal
-                                            ? 'Perfil Principal (Propietario)'
-                                            : (notas.isNotEmpty ? notas : 'Usuario registrado'),
+                                            ? loc.perfilPrincipalPropietario
+                                            : (notas.isNotEmpty ? notas : loc.usuarioRegistrado),
                                       ),
                                       trailing: Row(
                                         mainAxisSize: MainAxisSize.min,
@@ -659,6 +662,7 @@ class _GestionarPerfilesScreenState
                                                   size: 20),
                                               onPressed: () =>
                                                   _mostrarDialogoNuevoPerfil(
+                                                loc,
                                                 id,
                                                 nombre,
                                                 notas,
@@ -674,6 +678,7 @@ class _GestionarPerfilesScreenState
                                                   _confirmarEliminarPerfil(
                                                 id,
                                                 nombre,
+                                                loc,
                                               ),
                                             ),
                                           ],
@@ -699,7 +704,7 @@ class _GestionarPerfilesScreenState
                                         Navigator.pop(context);
                                       },
                                     ),
-                                    _buildGridMetricas(statsItem, isDark),
+                                    _buildGridMetricas(statsItem, isDark, loc),
                                   ],
                                 ),
                               );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../l10n/app_localizations.dart';
 import '../provider/bluetooth_provider.dart';
 import '../provider/sound_provider.dart';
 
@@ -17,16 +18,16 @@ class ConfigEntrenamientoScreen extends ConsumerStatefulWidget {
 class _ConfigEntrenamientoScreenState
     extends ConsumerState<ConfigEntrenamientoScreen> {
   ModoEntrenamiento _modo = ModoEntrenamiento.rondas;
-  int _cantidadPods = 3; // Cantidad de Pods activos (1 a 6)
+  int _cantidadPods = 4;
   int _rondas = 10;
   int _tiempoLimiteSeg = 30;
 
   String _colorSeleccionado = 'Verde';
   String _colorSeleccionado2 = 'Rojo';
 
-  int _intensidad = 100; // Porcentaje de brillo (10% a 100%)
-  double _tiempoEntrePodsSeg = 1.0; // Intervalo de pausa (0.2s a 5.0s)
-  double _tiempoDistractorSeg = 2.0; // Tiempo para ignorar Color 2 (1.0s a 5.0s)
+  int _intensidad = 100;
+  double _tiempoEntrePodsSeg = 1.0;
+  double _tiempoDistractorSeg = 2.0;
 
   int _customR = 242;
   int _customG = 21;
@@ -89,7 +90,7 @@ class _ConfigEntrenamientoScreenState
     });
   }
 
-  void _navegarAEntrenamiento() {
+  void _navegarAEntrenamiento(AppLocalizations loc) {
     final btState = ref.read(bluetoothProvider);
     final messenger = ScaffoldMessenger.of(context);
 
@@ -100,19 +101,17 @@ class _ConfigEntrenamientoScreenState
         SnackBar(
           content: Row(
             children: [
-              const Expanded(
-                child: Text(
-                  'Debés conectar el ESP32 por Bluetooth antes de iniciar la rutina.',
-                ),
+              Expanded(
+                child: Text(loc.errorBluetoothRequerido),
               ),
               TextButton(
                 onPressed: () {
                   messenger.hideCurrentSnackBar();
                   context.push('/bluetooth');
                 },
-                child: const Text(
-                  'CONECTAR',
-                  style: TextStyle(
+                child: Text(
+                  loc.conectar,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
@@ -131,13 +130,11 @@ class _ConfigEntrenamientoScreenState
     if (_modo == ModoEntrenamiento.bicolor &&
         _colorSeleccionado == _colorSeleccionado2) {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'En el Modo Bicolor debés seleccionar dos colores distintos.',
-          ),
+        SnackBar(
+          content: Text(loc.errorBicolorColoresIguales),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -239,9 +236,11 @@ class _ConfigEntrenamientoScreenState
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Configurar Entrenamiento'),
+        title: Text(loc.configurarEntrenamiento),
         centerTitle: true,
         elevation: 2,
       ),
@@ -250,10 +249,9 @@ class _ConfigEntrenamientoScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // SECCIÓN SELECCIÓN DE PODS
-            const Text(
-              'Cantidad de Pods Activos',
-              style: TextStyle(
+            Text(
+              loc.cantidadPodsActivos,
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -269,13 +267,13 @@ class _ConfigEntrenamientoScreenState
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.sensors, color: Colors.blueAccent),
-                        SizedBox(width: 12),
+                        const Icon(Icons.sensors, color: Colors.blueAccent),
+                        const SizedBox(width: 12),
                         Text(
-                          'Pods a utilizar:',
-                          style: TextStyle(
+                          loc.podsAUtilizar,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
@@ -309,10 +307,9 @@ class _ConfigEntrenamientoScreenState
             ),
             const SizedBox(height: 24),
 
-            // SECCIÓN MODO DE ENTRENAMIENTO
-            const Text(
-              'Selecciona el Modo',
-              style: TextStyle(
+            Text(
+              loc.seleccionaElModo,
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -328,29 +325,29 @@ class _ConfigEntrenamientoScreenState
                 onChanged: (val) {
                   if (val != null) _cambiarModo(val);
                 },
-                child: const Column(
+                child: Column(
                   children: [
                     RadioListTile<ModoEntrenamiento>(
-                      title: Text('Por Rondas'),
-                      subtitle: Text('Completa un número fijo de toques'),
+                      title: Text(loc.porRondas),
+                      subtitle: Text(loc.completaNumeroFijo),
                       value: ModoEntrenamiento.rondas,
                     ),
-                    Divider(height: 1),
+                    const Divider(height: 1),
                     RadioListTile<ModoEntrenamiento>(
-                      title: Text('Por Tiempo'),
-                      subtitle: Text('Toca la mayor cantidad antes de que acabe el tiempo'),
+                      title: Text(loc.porTiempo),
+                      subtitle: Text(loc.tocaMayorCantidad),
                       value: ModoEntrenamiento.tiempo,
                     ),
-                    Divider(height: 1),
+                    const Divider(height: 1),
                     RadioListTile<ModoEntrenamiento>(
-                      title: Text('Modo Bicolor'),
-                      subtitle: Text('Desactiva Color 1 e ignora Color 2'),
+                      title: Text(loc.modoBicolor),
+                      subtitle: Text(loc.desactivaColor1),
                       value: ModoEntrenamiento.bicolor,
                     ),
-                    Divider(height: 1),
+                    const Divider(height: 1),
                     RadioListTile<ModoEntrenamiento>(
-                      title: Text('Modo Manual'),
-                      subtitle: Text('Controlá la luz directamente desde la app'),
+                      title: Text(loc.modoManual),
+                      subtitle: Text(loc.controlaLuzDirectamente),
                       value: ModoEntrenamiento.manual,
                     ),
                   ],
@@ -361,10 +358,10 @@ class _ConfigEntrenamientoScreenState
 
             Text(
               _modo == ModoEntrenamiento.rondas || _modo == ModoEntrenamiento.bicolor
-                  ? 'Parámetros de Rondas'
+                  ? loc.parametrosRondas
                   : (_modo == ModoEntrenamiento.tiempo
-                      ? 'Parámetros de Tiempo'
-                      : 'Modo Manual'),
+                      ? loc.parametrosTiempo
+                      : loc.modoManual),
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -385,9 +382,9 @@ class _ConfigEntrenamientoScreenState
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Cantidad de Rondas:',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                          Text(
+                            loc.cantidadRondas,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                           ),
                           Chip(
                             label: Text(
@@ -405,7 +402,7 @@ class _ConfigEntrenamientoScreenState
                         min: 5,
                         max: 30,
                         divisions: 25,
-                        label: '$_rondas rondas',
+                        label: '$_rondas',
                         onChanged: (val) {
                           setState(() => _rondas = val.round());
                         },
@@ -414,9 +411,9 @@ class _ConfigEntrenamientoScreenState
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Tiempo Límite:',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                          Text(
+                            loc.tiempoLimite,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                           ),
                           Chip(
                             label: Text(
@@ -440,14 +437,14 @@ class _ConfigEntrenamientoScreenState
                         },
                       ),
                     ] else ...[
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.touch_app, color: Colors.blueAccent, size: 28),
-                          SizedBox(width: 12),
+                          const Icon(Icons.touch_app, color: Colors.blueAccent, size: 28),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'En el Modo Manual podés encender y apagar el pod en cualquier momento tocando sus casillas.',
-                              style: TextStyle(fontSize: 15),
+                              loc.mensajeModoManual,
+                              style: const TextStyle(fontSize: 15),
                             ),
                           ),
                         ],
@@ -460,9 +457,9 @@ class _ConfigEntrenamientoScreenState
             const SizedBox(height: 24),
 
             if (_modo == ModoEntrenamiento.bicolor) ...[
-              const Text(
-                'Tiempo Límite Color 2 (Distractor)',
-                style: TextStyle(
+              Text(
+                loc.tiempoLimiteColor2,
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -480,13 +477,13 @@ class _ConfigEntrenamientoScreenState
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(Icons.block, color: Colors.redAccent),
-                              SizedBox(width: 8),
+                              const Icon(Icons.block, color: Colors.redAccent),
+                              const SizedBox(width: 8),
                               Text(
-                                'Tiempo para ignorar:',
-                                style: TextStyle(
+                                loc.tiempoParaIgnorar,
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -529,9 +526,9 @@ class _ConfigEntrenamientoScreenState
             ],
 
             if (_modo != ModoEntrenamiento.manual) ...[
-              const Text(
-                'Intervalo entre Pods',
-                style: TextStyle(
+              Text(
+                loc.intervaloEntrePods,
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -549,13 +546,13 @@ class _ConfigEntrenamientoScreenState
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(Icons.timer_outlined, color: Colors.blueAccent),
-                              SizedBox(width: 8),
+                              const Icon(Icons.timer_outlined, color: Colors.blueAccent),
+                              const SizedBox(width: 8),
                               Text(
-                                'Pausa entre toques:',
-                                style: TextStyle(
+                                loc.pausaEntreToques,
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -598,7 +595,7 @@ class _ConfigEntrenamientoScreenState
             ],
 
             Text(
-              _modo == ModoEntrenamiento.bicolor ? 'Colores Bicolor' : 'Color de los LEDs',
+              _modo == ModoEntrenamiento.bicolor ? loc.coloresBicolor : loc.colorLeds,
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -620,10 +617,10 @@ class _ConfigEntrenamientoScreenState
                             initialValue: _coloresBicolor.contains(_colorSeleccionado)
                                 ? _colorSeleccionado
                                 : 'Verde',
-                            decoration: const InputDecoration(
-                              labelText: 'Color 1 (A tocar)',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.palette, color: Colors.blueAccent),
+                            decoration: InputDecoration(
+                              labelText: loc.color1ATocar,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.palette, color: Colors.blueAccent),
                             ),
                             items: _coloresBicolor.map((color) {
                               return DropdownMenuItem(
@@ -640,10 +637,10 @@ class _ConfigEntrenamientoScreenState
                             initialValue: _coloresBicolor.contains(_colorSeleccionado2)
                                 ? _colorSeleccionado2
                                 : 'Rojo',
-                            decoration: const InputDecoration(
-                              labelText: 'Color 2 (NO tocar / Ignorar)',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.block, color: Colors.redAccent),
+                            decoration: InputDecoration(
+                              labelText: loc.color2NoTocar,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.block, color: Colors.redAccent),
                             ),
                             items: _coloresBicolor.map((color) {
                               return DropdownMenuItem(
@@ -664,10 +661,10 @@ class _ConfigEntrenamientoScreenState
                             initialValue: _coloresDisponibles.contains(_colorSeleccionado)
                                 ? _colorSeleccionado
                                 : 'Verde',
-                            decoration: const InputDecoration(
-                              labelText: 'Seleccionar Color Base',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.palette),
+                            decoration: InputDecoration(
+                              labelText: loc.seleccionarColorBase,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.palette),
                             ),
                             items: _coloresDisponibles.map((color) {
                               return DropdownMenuItem(
@@ -683,9 +680,9 @@ class _ConfigEntrenamientoScreenState
                           ),
                           if (_colorSeleccionado == 'Personalizado') ...[
                             const SizedBox(height: 20),
-                            const Text(
-                              'Ajuste de Color RGB:',
-                              style: TextStyle(
+                            Text(
+                              loc.ajusteColorRgb,
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -712,9 +709,9 @@ class _ConfigEntrenamientoScreenState
                             const SizedBox(height: 12),
                             Row(
                               children: [
-                                const Text(
-                                  'Vista previa: ',
-                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                Text(
+                                  loc.vistaPrevia,
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
                                 ),
                                 const SizedBox(width: 8),
                                 Container(
@@ -742,9 +739,9 @@ class _ConfigEntrenamientoScreenState
             ),
             const SizedBox(height: 24),
 
-            const Text(
-              'Intensidad de los LEDs',
-              style: TextStyle(
+            Text(
+              loc.intensidadLeds,
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -762,13 +759,13 @@ class _ConfigEntrenamientoScreenState
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.brightness_6, color: Colors.orangeAccent),
-                            SizedBox(width: 8),
+                            const Icon(Icons.brightness_6, color: Colors.orangeAccent),
+                            const SizedBox(width: 8),
                             Text(
-                              'Brillo / Intensidad:',
-                              style: TextStyle(
+                              loc.brilloIntensidad,
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -813,11 +810,11 @@ class _ConfigEntrenamientoScreenState
               width: double.infinity,
               height: 54,
               child: ElevatedButton.icon(
-                onPressed: _navegarAEntrenamiento,
+                onPressed: () => _navegarAEntrenamiento(loc),
                 icon: const Icon(Icons.play_arrow, size: 28),
-                label: const Text(
-                  'INICIAR RUTINA',
-                  style: TextStyle(
+                label: Text(
+                  loc.iniciarRutina,
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.1,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:go_router/go_router.dart';
+import '../l10n/app_localizations.dart';
 import '../provider/bluetooth_provider.dart';
 import '../provider/perfil_provider.dart';
 import '../provider/user_mode_provider.dart';
@@ -17,6 +18,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context);
     final user = FirebaseAuth.instance.currentUser;
     final btState = ref.watch(bluetoothProvider);
     final perfilActivo = ref.watch(perfilActivoProvider);
@@ -32,9 +34,9 @@ class HomeScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/config-entrenamiento'),
         icon: const Icon(Icons.play_arrow),
-        label: const Text(
-          'Entrenar',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        label: Text(
+          loc.entrenar,
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
@@ -52,10 +54,10 @@ class HomeScreen extends ConsumerWidget {
                   final nombre = (currentUser?.displayName != null &&
                           currentUser!.displayName!.isNotEmpty)
                       ? currentUser.displayName!
-                      : "Entrenador";
+                      : loc.entrenador;
 
                   return Text(
-                    "¡Hola, $nombre! 👋",
+                    loc.holaEntrenador(nombre),
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -88,12 +90,12 @@ class HomeScreen extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  "Usuario Activo:",
-                                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                                Text(
+                                  loc.usuarioActivo,
+                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                                 ),
                                 Text(
-                                  perfilActivo?.nombre ?? "Perfil Principal",
+                                  perfilActivo?.nombre ?? loc.perfilPrincipal,
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -107,7 +109,7 @@ class HomeScreen extends ConsumerWidget {
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 12),
                             ),
-                            child: const Text('CAMBIAR'),
+                            child: Text(loc.cambiar),
                           ),
                         ],
                       ),
@@ -153,9 +155,9 @@ class HomeScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                "Estado del dispositivo",
-                                style: TextStyle(
+                              Text(
+                                loc.estadoDispositivo,
+                                style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
                                 ),
@@ -163,8 +165,8 @@ class HomeScreen extends ConsumerWidget {
                               const SizedBox(height: 2),
                               Text(
                                 btState.conectado
-                                    ? "ESP32 Conectado (${btState.device?.platformName.isNotEmpty == true ? btState.device!.platformName : 'Pod BLE'})"
-                                    : "ESP32 desconectado",
+                                    ? loc.esp32Conectado(btState.device?.platformName.isNotEmpty == true ? btState.device!.platformName : loc.podBle)
+                                    : loc.esp32Desconectado,
                                 style: TextStyle(
                                   color: btState.conectado ? Colors.green : Colors.grey,
                                   fontSize: 13,
@@ -273,7 +275,7 @@ class HomeScreen extends ConsumerWidget {
                             child: _StatCard(
                               icon: Icons.emoji_events,
                               iconColor: Colors.amber,
-                              label: "Mejor",
+                              label: loc.mejor,
                               value: _formatTiempo(mejorSeg),
                             ),
                           ),
@@ -282,7 +284,7 @@ class HomeScreen extends ConsumerWidget {
                             child: _StatCard(
                               icon: Icons.timer_sharp,
                               iconColor: Colors.blue,
-                              label: "Último Promedio",
+                              label: loc.ultimoPromedio,
                               value: _formatTiempo(ultimoSeg),
                             ),
                           ),
@@ -310,9 +312,9 @@ class HomeScreen extends ConsumerWidget {
                               size: 24,
                             ),
                             const SizedBox(width: 12),
-                            const Text(
-                              "Promedio General",
-                              style: TextStyle(
+                            Text(
+                              loc.promedioGeneral,
+                              style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 15,
                               ),
@@ -333,8 +335,8 @@ class HomeScreen extends ConsumerWidget {
                         const SizedBox(height: 24),
                         Text(
                           esModoProfesional
-                              ? "Última sesión de ${perfilActivo?.nombre ?? 'Perfil Principal'}"
-                              : "Última sesión",
+                              ? loc.ultimaSesionDe(perfilActivo?.nombre ?? loc.perfilPrincipal)
+                              : loc.ultimaSesion,
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -356,9 +358,9 @@ class HomeScreen extends ConsumerWidget {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
-                                    "Toques en esta sesión",
-                                    style: TextStyle(color: Colors.grey),
+                                  Text(
+                                    loc.toquesEnEstaSesion,
+                                    style: const TextStyle(color: Colors.grey),
                                   ),
                                   Text(
                                     "$toquesUltimaSesion",
@@ -372,9 +374,9 @@ class HomeScreen extends ConsumerWidget {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
-                                    "Mejor toque de la sesión",
-                                    style: TextStyle(color: Colors.grey),
+                                  Text(
+                                    loc.mejorToqueDeLaSesion,
+                                    style: const TextStyle(color: Colors.grey),
                                   ),
                                   Text(
                                     _formatTiempo(recordUltimaSesion),
@@ -393,9 +395,9 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
 
-              const Text(
-                "Accesos rápidos",
-                style: TextStyle(
+              Text(
+                loc.accesosRapidos,
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -405,20 +407,20 @@ class HomeScreen extends ConsumerWidget {
               if (esModoProfesional) ...[
                 _QuickAccessItem(
                   icon: Icons.people_outline,
-                  title: "Gestionar Usuarios",
+                  title: loc.gestionarUsuarios,
                   onTap: () => context.push('/gestionar-perfiles'),
                 ),
                 const SizedBox(height: 8),
               ],
               _QuickAccessItem(
                 icon: Icons.bluetooth,
-                title: "Vincular Pod BLE",
+                title: loc.vincularPodBle,
                 onTap: () => context.push('/bluetooth'),
               ),
               const SizedBox(height: 8),
               _QuickAccessItem(
                 icon: Icons.history,
-                title: "Ver historial de tiempos",
+                title: loc.verHistorialTiempos,
                 onTap: () => context.push('/tiempos'),
               ),
               const SizedBox(height: 80),

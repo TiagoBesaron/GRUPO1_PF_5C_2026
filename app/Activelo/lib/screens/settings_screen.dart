@@ -25,6 +25,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     'fr': 'Français',
     'it': 'Italiano',
     'de': 'Deutsch',
+    'pt': 'Português',
     'he': 'עברית (Hebreo)',
     'ar': 'العربية (Árabe)',
     'ja': '日本語 (Japonés)',
@@ -54,7 +55,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(loc?.ajustes ?? 'Ajustes y Configuración'),
+        title: Text(loc.ajustes),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -195,7 +196,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 icon: const Icon(Icons.edit,
                                     size: 16, color: Colors.blueAccent),
                                 label: Text(
-                                  loc?.editarPerfil ?? 'Editar',
+                                  loc.editarPerfil,
                                   style: const TextStyle(
                                       color: Colors.blueAccent,
                                       fontWeight: FontWeight.bold),
@@ -259,7 +260,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '¡Feliz Cumpleaños, $nombre! 🎂',
+                                  loc.felizCumpleanos(nombre),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -270,7 +271,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '¡Todo el equipo de Activelo te desea un excelente día de entrenamiento!',
+                                  loc.mensajeCumpleanos,
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: isDarkMode
@@ -291,7 +292,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
-                loc?.cuentaPerfil ?? 'PERFIL Y MODO DE USO',
+                loc.perfilYModoDeUso,
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -303,11 +304,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Card(
               child: SwitchListTile(
                 secondary: const Icon(Icons.badge_outlined, color: Colors.blue),
-                title: Text(loc?.modoProfesional ?? 'Modo Profesional'),
-                subtitle: Text(
-                  loc?.modoProfesionalDesc ??
-                      'Habilita la gestión de múltiples usuarios y notas de sesión.',
-                ),
+                title: Text(loc.modoProfesional),
+                subtitle: Text(loc.modoProfesionalDesc),
                 value: esModoProfesional,
                 activeThumbColor: Colors.blue,
                 onChanged: (bool value) {
@@ -320,7 +318,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
-                loc?.aparienciaTema ?? 'APARIENCIA Y TEMA',
+                loc.aparienciaTema,
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -337,8 +335,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       isDarkMode ? Icons.dark_mode : Icons.light_mode,
                       color: Colors.blue,
                     ),
-                    title: Text(loc?.modoOscuro ?? 'Modo Oscuro'),
-                    subtitle: const Text('Cambiar entre tema claro y oscuro'),
+                    title: Text(loc.modoOscuro),
+                    subtitle: Text(loc.cambiarTemaClaroOscuro),
                     value: isDarkMode,
                     activeThumbColor: Colors.blue,
                     onChanged: (bool value) {
@@ -348,7 +346,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.language, color: Colors.blueAccent),
-                    title: Text(loc?.idioma ?? 'Idioma'),
+                    title: Text(loc.idioma),
                     subtitle: Text(_idiomasSoportados[currentLocale.languageCode] ?? 'Español'),
                     trailing: DropdownButton<String>(
                       value: currentLocale.languageCode,
@@ -374,7 +372,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
-                loc?.sonidoRetroalimentacion ?? 'SONIDO Y RETROALIMENTACIÓN',
+                loc.sonidoRetroalimentacion,
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -386,9 +384,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Card(
               child: SwitchListTile(
                 secondary: const Icon(Icons.volume_up, color: Colors.blue),
-                title: Text(loc?.efectosSonido ?? 'Efectos de Sonido'),
-                subtitle: const Text(
-                    'Reproducir sonidos al iniciar y finalizar la rutina'),
+                title: Text(loc.efectosSonido),
+                subtitle: Text(loc.reproducirSonidosRutina),
                 value: sonidoHabilitado,
                 activeThumbColor: Colors.blue,
                 onChanged: (val) {
@@ -401,7 +398,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
-                loc?.cuentaPerfil ?? 'CUENTA Y PERFIL',
+                loc.cuentaPerfil,
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -416,8 +413,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ListTile(
                     leading:
                         const Icon(Icons.person_outline, color: Colors.blue),
-                    title: Text(loc?.editarPerfil ?? 'Editar Perfil'),
-                    subtitle: const Text('Actualiza tu información personal'),
+                    title: Text(loc.editarPerfil),
+                    subtitle: Text(loc.actualizaInformacionPersonal),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/edit-profile'),
                   ),
@@ -425,8 +422,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ListTile(
                     leading: const Icon(Icons.bluetooth_searching,
                         color: Colors.blue),
-                    title: Text(loc?.dispositivosBluetooth ?? 'Dispositivos Bluetooth'),
-                    subtitle: const Text('Administrar conexiones y escaneo'),
+                    title: Text(loc.dispositivosBluetooth),
+                    subtitle: Text(loc.administrarConexiones),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/bluetooth'),
                   ),
@@ -438,7 +435,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
-                loc?.informacion ?? 'INFORMACIÓN',
+                loc.informacion,
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -450,16 +447,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Card(
               child: Column(
                 children: [
-                  const ListTile(
-                    leading: Icon(Icons.info_outline, color: Colors.blue),
-                    title: Text('Activelo LED Trainer'),
-                    subtitle: Text('Versión 1.0.0'),
+                  ListTile(
+                    leading: const Icon(Icons.info_outline, color: Colors.blue),
+                    title: Text('${loc.appTitle}'),
+                    subtitle: Text(loc.versionApp),
                   ),
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.privacy_tip_outlined,
                         color: Colors.blue),
-                    title: Text(loc?.terminosPrivacidad ?? 'Términos y Privacidad'),
+                    title: Text(loc.terminosYPrivacidad),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/terminos-privacidad'),
                   ),
@@ -480,7 +477,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 icon: const Icon(Icons.logout, color: Colors.redAccent),
                 label: Text(
-                  loc?.cerrarSesion ?? 'Cerrar Sesión',
+                  loc.cerrarSesion,
                   style: const TextStyle(
                     color: Colors.redAccent,
                     fontSize: 16,
