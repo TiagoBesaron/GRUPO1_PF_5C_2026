@@ -29,31 +29,32 @@ class _EntrenamientoActivoScreenState
   late int tiempoLimiteSeg;
   int tiempoRestanteSeg = 0;
 
-  // Temporizadores
   Timer? _timerTiempo;
-  Timer? _timerDistractor;
+  Timer? _timerIntervaloPods;
   Timer? _timerCuentaRegresiva;
-  Timer? _timerIntervaloContinuo;
-  Timer? _timerGracia10s;
+  Timer? _timerGraciaFinal;
+  final Map<int, Timer> _timersDistractor = {};
 
   int cuentaRegresiva = 3;
   bool enCuentaRegresiva = false;
-  bool enTiempoGracia = false;
+  bool enTiempoFinalGracia = false;
+  int segundosGraciaRestantes = 10;
+
+  // Nueva opción: Si es true solo se enciende 1 pod a la vez (debe apagarse para pasar al siguiente)
+  bool soloUnoAlaVez = false;
 
   late String modo;
   List<double> tiemposObtenidos = [];
   int cantidadErrores = 0;
-  bool esperandoSensor = false;
-  bool enPausaEntreRondas = false;
-  bool ledEncendido = false;
   bool sesionTerminada = false;
-  bool esColor1Actual = true;
 
-  int podActivoActual = -1;
+  // Manejo de estado multi-pod encendido
+  final Set<int> podsEncendidos = {};
+  final Map<int, List<int>> podColores = {};
+  final Map<int, bool> podIsColor1 = {};
+  final Map<int, DateTime> podTiemposEncendido = {};
+
   String estadoTexto = "";
-
-  // Mapa de pods activos (ID -> Timestamp encendido)
-  final Map<int, DateTime> podsActivos = {};
 
   final List<List<int>> listaRGB = [
     [255, 0, 0],
@@ -72,9 +73,11 @@ class _EntrenamientoActivoScreenState
     cantidadPods = widget.config['cantidadPods'] ?? 3;
     rondasTotal = widget.config['rondasTotal'] ?? 10;
     tiempoLimiteSeg = widget.config['tiempoLimiteSeg'] ?? 30;
+    soloUnoAlaVez = widget.config['soloUnoAlaVez'] ?? false;
 
     if (modo == 'manual') {
       enCuentaRegresiva = false;
+      estadoTexto = "Modo Manual: Toca un Pod en pantalla para encenderlo";
     } else {
       _iniciarCuentaRegresiva();
     }
@@ -106,18 +109,11 @@ class _EntrenamientoActivoScreenState
 
         ref.read(soundServiceProvider).playStart();
 
-        if (modo == 'tiempo' || modo == 'continuo') {
-          if (tiempoLimiteSeg > 0) {
-            tiempoRestanteSeg = tiempoLimiteSeg;
-            _iniciarCronometro();
-          }
+        if (modo == 'tiempo') {
+          tiempoRestanteSeg = tiempoLimiteSeg;
+          _iniciarCronometro();
         }
-
-        if (modo == 'continuo') {
-          _iniciarModoContinuo();
-        } else {
-          iniciarSiguienteRonda();
-        }
+        _iniciarBucleIntervalos();
       }
     });
   }
@@ -132,12 +128,7 @@ class _EntrenamientoActivoScreenState
       if (tiempoRestanteSeg <= 1) {
         timer.cancel();
         setState(() => tiempoRestanteSeg = 0);
-        
-        if (modo == 'continuo') {
-          _iniciarTiempoGraciaContinuo();
-        } else {
-          finalizarEntrenamiento();
-        }
+        _iniciarFaseGracia10Segundos();
       } else {
         setState(() {
           tiempoRestanteSeg--;
@@ -146,81 +137,7 @@ class _EntrenamientoActivoScreenState
     });
   }
 
-  /// Modo continuo: intenta encender 1 pod cada N segundos (2s por defecto)
-  void _iniciarModoContinuo() {
-    _cancelarTimersRutina();
-
-    double intervaloSeg =
-        ((widget.config['tiempoEntrePodsSeg'] ?? 2.0) as num).toDouble();
-    int intervaloMs = (intervaloSeg * 1000).round();
-
-    _timerIntervaloContinuo = Timer.periodic(
-      Duration(milliseconds: intervaloMs),
-      (timer) {
-        if (!mounted || sesionTerminada || enTiempoGracia) {
-          timer.cancel();
-          return;
-        }
-        _encenderPodContinuo();
-      },
-    );
-
-    _encenderPodContinuo();
-  }
-
-  /// Intenta prender un pod disponible. Si están todos prendidos, suma un error.
-  void _encenderPodContinuo() {
-    if (sesionTerminada || enTiempoGracia || !mounted) return;
-
-    List<int> podsDisponibles = [];
-    for (int i = 0; i < cantidadPods; i++) {
-      if (!podsActivos.containsKey(i)) {
-        podsDisponibles.add(i);
-      }
-    }
-
-    // Regla: Si están todos prendidos y pasaron los 2s, suma 1 error y continúa
-    if (podsDisponibles.isEmpty) {
-      setState(() {
-        cantidadErrores++;
-      });
-      return;
-    }
-
-    int podElegido = podsDisponibles[Random().nextInt(podsDisponibles.length)];
-    podsActivos[podElegido] = DateTime.now();
-
-    List<int> rgb = obtenerRGBRonda();
-    String comando = "EMPEZAR:$podElegido,${rgb[0]},${rgb[1]},${rgb[2]}";
-    ref.read(bluetoothProvider.notifier).enviarComando(comando);
-
-    final loc = AppLocalizations.of(context);
-    setState(() {
-      esperandoSensor = true;
-      ledEncendido = true;
-      podActivoActual = podElegido;
-      estadoTexto = loc.pasaManoPorPod(podElegido + 1);
-    });
-  }
-
-  /// Ventana de 10 segundos al terminar el tiempo de la rutina
-  void _iniciarTiempoGraciaContinuo() {
-    _timerIntervaloContinuo?.cancel();
-
-    setState(() {
-      enTiempoGracia = true;
-      estadoTexto = "¡Tiempo finalizado! 10s para apagar pods restantes";
-    });
-
-    _timerGracia10s?.cancel();
-    _timerGracia10s = Timer(const Duration(seconds: 10), () {
-      if (mounted && !sesionTerminada) {
-        finalizarEntrenamiento();
-      }
-    });
-  }
-
-  List<int> obtenerRGBRonda() {
+  List<int> obtenerRGBRonda(bool esColor1) {
     double factorIntensidad =
         ((widget.config['intensidad'] ?? 100) as num) / 100.0;
     List<int> rawRgb;
@@ -228,7 +145,7 @@ class _EntrenamientoActivoScreenState
     if (modo == 'bicolor') {
       List<int> c1 = List<int>.from(widget.config['rgbBase'] ?? [0, 255, 0]);
       List<int> c2 = List<int>.from(widget.config['rgbBase2'] ?? [255, 0, 0]);
-      rawRgb = esColor1Actual ? c1 : c2;
+      rawRgb = esColor1 ? c1 : c2;
     } else if (widget.config['colorAleatorio'] == true) {
       rawRgb = listaRGB[Random().nextInt(listaRGB.length)];
     } else {
@@ -242,199 +159,276 @@ class _EntrenamientoActivoScreenState
     ];
   }
 
-  Future<void> iniciarSiguienteRonda() async {
-    if (sesionTerminada) return;
-    _timerDistractor?.cancel();
+  void _iniciarBucleIntervalos() {
+    double delaySeg =
+        ((widget.config['tiempoEntrePodsSeg'] ?? 1.0) as num).toDouble();
+    int intervaloMs = (delaySeg * 1000).round();
 
-    if ((modo == 'rondas' || modo == 'bicolor') && rondaActual >= rondasTotal) {
-      finalizarEntrenamiento();
+    _intentarEncenderSiguientePod();
+
+    if (modo == 'manual') return;
+
+    _timerIntervaloPods?.cancel();
+    _timerIntervaloPods =
+        Timer.periodic(Duration(milliseconds: intervaloMs), (timer) {
+      if (!mounted || sesionTerminada || enTiempoFinalGracia) {
+        timer.cancel();
+        return;
+      }
+
+      if (modo == 'rondas' || modo == 'bicolor') {
+        if (rondaActual >= rondasTotal) {
+          timer.cancel();
+          _iniciarFaseGracia10Segundos();
+          return;
+        }
+      }
+
+      _intentarEncenderSiguientePod();
+    });
+  }
+
+  void _intentarEncenderSiguientePod() {
+    if (sesionTerminada || enTiempoFinalGracia) return;
+    final loc = AppLocalizations.of(context);
+
+    // Si está activa la opción "Uno a Uno", no encender otro pod hasta apagar el activo
+    if (soloUnoAlaVez && podsEncendidos.isNotEmpty) {
       return;
     }
 
-    setState(() {
-      rondaActual++;
-      enPausaEntreRondas = true;
-      esperandoSensor = false;
-      estadoTexto = AppLocalizations.of(context).atento;
-    });
-
-    double delaySeg =
-        ((widget.config['tiempoEntrePodsSeg'] ?? 1.0) as num).toDouble();
-    int tiempoEsperaMs = (delaySeg * 1000).round();
-
-    await Future.delayed(Duration(milliseconds: tiempoEsperaMs));
-
-    if (!mounted || sesionTerminada) return;
-
-    int podAleatorio = Random().nextInt(cantidadPods);
-    _encenderPod(podAleatorio);
-  }
-
-  void _togglePodManual(int podIndex) {
-    if (sesionTerminada) return;
-
-    if (ledEncendido && podActivoActual == podIndex) {
-      _apagarPodActual();
-    } else {
-      if (ledEncendido) {
-        _apagarPodActual();
+    List<int> podsDisponibles = [];
+    for (int i = 0; i < cantidadPods; i++) {
+      if (!podsEncendidos.contains(i)) {
+        podsDisponibles.add(i);
       }
-      _encenderPod(podIndex);
     }
-  }
 
-  void _encenderPod(int podIndex) {
-    if (sesionTerminada) return;
-    _timerDistractor?.cancel();
-    final loc = AppLocalizations.of(context);
+    if (modo == 'rondas' || modo == 'bicolor') {
+      if (rondaActual >= rondasTotal) {
+        _timerIntervaloPods?.cancel();
+        _iniciarFaseGracia10Segundos();
+        return;
+      }
+      setState(() {
+        rondaActual++;
+      });
+    }
 
+    // Si todos los pods están encendidos en modo simultáneo -> Suma Error por saturación
+    if (podsDisponibles.isEmpty) {
+      setState(() {
+        cantidadErrores++;
+        estadoTexto = "¡Pods saturados! (+1 Error)";
+      });
+      return;
+    }
+
+    int podElegido = podsDisponibles[Random().nextInt(podsDisponibles.length)];
+    bool esColor1 = true;
     if (modo == 'bicolor') {
-      esColor1Actual = Random().nextBool();
+      esColor1 = Random().nextBool();
     }
 
-    List<int> rgb = obtenerRGBRonda();
+    List<int> rgb = obtenerRGBRonda(esColor1);
 
-    String comando = "EMPEZAR:$podIndex,${rgb[0]},${rgb[1]},${rgb[2]}";
+    String comando = "EMPEZAR:$podElegido,${rgb[0]},${rgb[1]},${rgb[2]}";
     ref.read(bluetoothProvider.notifier).enviarComando(comando);
 
     setState(() {
-      enPausaEntreRondas = false;
-      esperandoSensor = true;
-      ledEncendido = true;
-      podActivoActual = podIndex;
+      podsEncendidos.add(podElegido);
+      podColores[podElegido] = rgb;
+      podIsColor1[podElegido] = esColor1;
+      podTiemposEncendido[podElegido] = DateTime.now();
+
       if (modo == 'bicolor') {
-        estadoTexto = esColor1Actual
-            ? loc.tocaPodColor1(podIndex + 1)
-            : loc.noTocarColor2(podIndex + 1);
+        estadoTexto = esColor1
+            ? loc.tocaPodColor1(podElegido + 1)
+            : loc.noTocarColor2(podElegido + 1);
       } else {
-        estadoTexto = loc.pasaManoPorPod(podIndex + 1);
+        estadoTexto = loc.pasaManoPorPod(podElegido + 1);
       }
     });
 
-    if (modo == 'bicolor' && !esColor1Actual) {
+    if (modo == 'bicolor' && !esColor1) {
       double distractorSeg =
           ((widget.config['tiempoDistractorSeg'] ?? 2.0) as num).toDouble();
       int distractorMs = (distractorSeg * 1000).round();
 
-      _timerDistractor = Timer(Duration(milliseconds: distractorMs), () {
-        if (mounted && esperandoSensor && !sesionTerminada) {
-          _apagarPodActual();
+      _timersDistractor[podElegido]?.cancel();
+      _timersDistractor[podElegido] =
+          Timer(Duration(milliseconds: distractorMs), () {
+        if (mounted && podsEncendidos.contains(podElegido) && !sesionTerminada) {
+          _apagarPodSilencioso(podElegido);
           setState(() {
             estadoTexto = loc.excelenteColorIgnorado;
-          });
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted && !sesionTerminada) iniciarSiguienteRonda();
           });
         }
       });
     }
   }
 
-  void _apagarPodActual() {
-    _timerDistractor?.cancel();
-    if (podActivoActual != -1) {
-      String comando = "EMPEZAR:$podActivoActual,0,0,0";
-      ref.read(bluetoothProvider.notifier).enviarComando(comando);
-    }
+  void _apagarPodSilencioso(int podIndex) {
+    _timersDistractor[podIndex]?.cancel();
+    _timersDistractor.remove(podIndex);
 
-    final loc = AppLocalizations.of(context);
+    String comando = "EMPEZAR:$podIndex,0,0,0";
+    ref.read(bluetoothProvider.notifier).enviarComando(comando);
 
     setState(() {
-      esperandoSensor = false;
-      ledEncendido = false;
-      podActivoActual = -1;
-      estadoTexto = modo == 'manual'
-          ? loc.seleccionaPodEncender
-          : loc.ledApagado;
+      podsEncendidos.remove(podIndex);
+      podColores.remove(podIndex);
+      podIsColor1.remove(podIndex);
+      podTiemposEncendido.remove(podIndex);
     });
   }
 
   void _apagarTodosLosPods() {
-    _timerDistractor?.cancel();
-    for (int i = 0; i < cantidadPods; i++) {
-      String comando = "EMPEZAR:$i,0,0,0";
-      ref.read(bluetoothProvider.notifier).enviarComando(comando);
+    for (int pod in podsEncendidos.toList()) {
+      _apagarPodSilencioso(pod);
     }
-    podsActivos.clear();
-    setState(() {
-      esperandoSensor = false;
-      ledEncendido = false;
-      podActivoActual = -1;
-    });
   }
 
-  void procesarTiempoRespuesta(String ultimoTiempoStr, [int? podIdDetectado]) {
-    if (!esperandoSensor || sesionTerminada) return;
-    _timerDistractor?.cancel();
+  void _togglePodManual(int podIndex) {
+    if (sesionTerminada || enTiempoFinalGracia) return;
 
-    final loc = AppLocalizations.of(context);
-    double tiempoSeg =
-        double.tryParse(ultimoTiempoStr.replaceAll(" s", "")) ?? 0.0;
+    if (podsEncendidos.contains(podIndex)) {
+      _tocaped(podIndex);
+    } else {
+      if (soloUnoAlaVez && podsEncendidos.isNotEmpty) {
+        setState(() {
+          estadoTexto = "Debes apagar el pod encendido antes de activar otro";
+        });
+        return;
+      }
 
-    int podPrevio = podIdDetectado ?? podActivoActual;
+      if (podsEncendidos.length >= cantidadPods) {
+        setState(() {
+          cantidadErrores++;
+          estadoTexto = "¡Todos los pods encendidos! (+1 Error)";
+        });
+        return;
+      }
 
-    if (modo == 'continuo' && podPrevio != -1 && podsActivos.containsKey(podPrevio)) {
-      DateTime horaEncendido = podsActivos[podPrevio]!;
-      tiempoSeg =
-          DateTime.now().difference(horaEncendido).inMilliseconds / 1000.0;
-      podsActivos.remove(podPrevio);
-
-      String comando = "EMPEZAR:$podPrevio,0,0,0";
+      List<int> rgb = obtenerRGBRonda(true);
+      String comando = "EMPEZAR:$podIndex,${rgb[0]},${rgb[1]},${rgb[2]}";
       ref.read(bluetoothProvider.notifier).enviarComando(comando);
 
-      // Si estábamos en los 10s de gracia y se lograron apagar todos los pods
-      if (enTiempoGracia && podsActivos.isEmpty) {
-        _timerGracia10s?.cancel();
-        Future.delayed(const Duration(milliseconds: 200), () {
-          if (mounted && !sesionTerminada) finalizarEntrenamiento();
-        });
-      }
-    } else {
-      _apagarPodActual();
+      setState(() {
+        podsEncendidos.add(podIndex);
+        podColores[podIndex] = rgb;
+        podTiemposEncendido[podIndex] = DateTime.now();
+        estadoTexto = "Pod ${podIndex + 1} encendido";
+      });
     }
+  }
+
+  void _tocaped(int podIndex) {
+    if (!podsEncendidos.contains(podIndex) || sesionTerminada) return;
+    final loc = AppLocalizations.of(context);
+
+    DateTime? horaInicio = podTiemposEncendido[podIndex];
+    double tiempoSeg = horaInicio != null
+        ? DateTime.now().difference(horaInicio).inMilliseconds / 1000.0
+        : 0.0;
+
+    bool esColor1 = podIsColor1[podIndex] ?? true;
+
+    _apagarPodSilencioso(podIndex);
 
     if (modo == 'bicolor') {
-      if (esColor1Actual) {
+      if (esColor1) {
         tiemposObtenidos.add(tiempoSeg);
         setState(() {
-          estadoTexto = loc.toqueEnPod(podPrevio + 1, tiempoSeg.toStringAsFixed(3));
+          estadoTexto = loc.toqueEnPod(podIndex + 1, tiempoSeg.toStringAsFixed(3));
         });
       } else {
-        cantidadErrores++;
         setState(() {
-          estadoTexto = loc.errorTocasteColor2(podPrevio + 1);
+          cantidadErrores++;
+          estadoTexto = loc.errorTocasteColor2(podIndex + 1);
         });
       }
     } else {
       tiemposObtenidos.add(tiempoSeg);
       setState(() {
-        estadoTexto =
-            loc.toqueEnPod(podPrevio + 1, tiempoSeg.toStringAsFixed(3));
+        estadoTexto = loc.toqueEnPod(podIndex + 1, tiempoSeg.toStringAsFixed(3));
       });
     }
 
-    if (modo != 'manual' && modo != 'continuo') {
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted && !sesionTerminada) iniciarSiguienteRonda();
-      });
-    } else if (modo == 'continuo') {
-      setState(() {
-        ledEncendido = podsActivos.isNotEmpty;
-      });
+    // En modo "Uno a Uno", al apagar el pod se dispara de inmediato el siguiente
+    if (soloUnoAlaVez && modo != 'manual' && !enTiempoFinalGracia) {
+      _intentarEncenderSiguientePod();
     }
+  }
+
+  void procesarTiempoRespuesta(String ultimoTiempoStr) {
+    if (podsEncendidos.isEmpty || sesionTerminada) return;
+
+    int podAfectado = podsEncendidos.first;
+    _tocaped(podAfectado);
+  }
+
+  void _solicitarFinalizacionSesion() {
+    if (enTiempoFinalGracia || sesionTerminada) return;
+
+    if (podsEncendidos.isNotEmpty) {
+      _iniciarFaseGracia10Segundos();
+    } else {
+      finalizarEntrenamiento();
+    }
+  }
+
+  void _iniciarFaseGracia10Segundos() {
+    _timerIntervaloPods?.cancel();
+    if (enTiempoFinalGracia || sesionTerminada) return;
+
+    setState(() {
+      enTiempoFinalGracia = true;
+      segundosGraciaRestantes = 10;
+      estadoTexto = "¡Fase Final (+10s)! Apaga los pods activos.";
+    });
+
+    _timerGraciaFinal?.cancel();
+    _timerGraciaFinal = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || sesionTerminada) {
+        timer.cancel();
+        return;
+      }
+
+      if (segundosGraciaRestantes > 1) {
+        setState(() {
+          segundosGraciaRestantes--;
+        });
+      } else {
+        timer.cancel();
+        setState(() {
+          segundosGraciaRestantes = 0;
+        });
+
+        int podsQuedaronPrendidos = podsEncendidos.length;
+        if (podsQuedaronPrendidos > 0) {
+          cantidadErrores += podsQuedaronPrendidos;
+        }
+
+        finalizarEntrenamiento();
+      }
+    });
   }
 
   void _mostrarErrorDesconexion() {
     if (sesionTerminada || !mounted) return;
 
     final loc = AppLocalizations.of(context);
-    _cancelarTodosLosTimers();
+    _timerCuentaRegresiva?.cancel();
+    _timerTiempo?.cancel();
+    _timerIntervaloPods?.cancel();
+    _timerGraciaFinal?.cancel();
+
     setState(() {
       sesionTerminada = true;
-      esperandoSensor = false;
-      ledEncendido = false;
-      podActivoActual = -1;
     });
+
+    _apagarTodosLosPods();
 
     showDialog(
       context: context,
@@ -461,28 +455,14 @@ class _EntrenamientoActivoScreenState
     );
   }
 
-  void _cancelarTimersRutina() {
-    _timerIntervaloContinuo?.cancel();
-    _timerGracia10s?.cancel();
-    _timerDistractor?.cancel();
-  }
-
-  void _cancelarTodosLosTimers() {
-    _timerCuentaRegresiva?.cancel();
-    _timerTiempo?.cancel();
-    _cancelarTimersRutina();
-  }
-
   Future<void> finalizarEntrenamiento() async {
     if (sesionTerminada) return;
     final loc = AppLocalizations.of(context);
 
-    _cancelarTodosLosTimers();
-
-    // Regla: sumar como errores los pods que hayan quedado encendidos sin apagar
-    if (modo == 'continuo') {
-      cantidadErrores += podsActivos.length;
-    }
+    _timerCuentaRegresiva?.cancel();
+    _timerTiempo?.cancel();
+    _timerIntervaloPods?.cancel();
+    _timerGraciaFinal?.cancel();
 
     setState(() => sesionTerminada = true);
 
@@ -520,9 +500,9 @@ class _EntrenamientoActivoScreenState
               ],
               Text(loc.toquesValidos(tiemposObtenidos.length)),
               Text(loc.promedioSegundos(promedio.toStringAsFixed(3))),
-              if (modo == 'bicolor' || modo == 'continuo')
-                Text(loc.erroresCometidos(cantidadErrores)),
+              Text(loc.erroresCometidos(cantidadErrores)),
               const SizedBox(height: 16),
+
               TextField(
                 controller: notasController,
                 maxLines: 2,
@@ -550,6 +530,7 @@ class _EntrenamientoActivoScreenState
                   "promedio_seg": promedio,
                   "tiempos": tiemposObtenidos,
                   "errores": cantidadErrores,
+                  "solo_uno_a_la_vez": soloUnoAlaVez,
                   "perfil_id": esModoProfesional
                       ? (perfilActivo?.id ?? "principal")
                       : "principal",
@@ -575,7 +556,13 @@ class _EntrenamientoActivoScreenState
 
   @override
   void dispose() {
-    _cancelarTodosLosTimers();
+    _timerCuentaRegresiva?.cancel();
+    _timerTiempo?.cancel();
+    _timerIntervaloPods?.cancel();
+    _timerGraciaFinal?.cancel();
+    for (var t in _timersDistractor.values) {
+      t.cancel();
+    }
     _apagarTodosLosPods();
     super.dispose();
   }
@@ -583,9 +570,11 @@ class _EntrenamientoActivoScreenState
   String _getTituloAppBar(AppLocalizations loc) {
     if (enCuentaRegresiva) {
       return loc.aparatoListo;
+    } else if (enTiempoFinalGracia) {
+      return "Fase Final: ${segundosGraciaRestantes}s";
     } else if (modo == 'manual') {
       return loc.modoManualToques(tiemposObtenidos.length);
-    } else if (modo == 'tiempo' || modo == 'continuo') {
+    } else if (modo == 'tiempo') {
       return loc.tiempoRestanteToques(tiemposObtenidos.length, tiempoRestanteSeg);
     } else if (modo == 'bicolor') {
       return loc.bicolorRonda(rondaActual, rondasTotal);
@@ -606,21 +595,12 @@ class _EntrenamientoActivoScreenState
         return;
       }
 
-      if (prev?.reactionTicket != next.reactionTicket && esperandoSensor) {
-        int? podIdDetectado;
-        try {
-          dynamic nextDyn = next;
-          podIdDetectado =
-              nextDyn.ultimoPod ?? nextDyn.podId ?? nextDyn.ultimoPodId;
-        } catch (_) {}
-
-        procesarTiempoRespuesta(next.ultimoTiempo, podIdDetectado);
+      if (prev?.reactionTicket != next.reactionTicket && podsEncendidos.isNotEmpty) {
+        procesarTiempoRespuesta(next.ultimoTiempo);
       }
     });
 
-    List<int> currentRgb = obtenerRGBRonda();
-    Color currentColor =
-        Color.fromRGBO(currentRgb[0], currentRgb[1], currentRgb[2], 1.0);
+    List<int> defaultRgb = obtenerRGBRonda(true);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final perfilActivo = ref.watch(perfilActivoProvider);
     final esModoProfesional = ref.watch(modoProfesionalProvider);
@@ -629,7 +609,10 @@ class _EntrenamientoActivoScreenState
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
-          _cancelarTodosLosTimers();
+          _timerCuentaRegresiva?.cancel();
+          _timerTiempo?.cancel();
+          _timerIntervaloPods?.cancel();
+          _timerGraciaFinal?.cancel();
           _apagarTodosLosPods();
         }
       },
@@ -657,30 +640,66 @@ class _EntrenamientoActivoScreenState
                   ),
                   const SizedBox(height: 12),
                 ],
-                if ((modo == 'tiempo' || modo == 'continuo') &&
-                    !enCuentaRegresiva) ...[
+
+                // Control selector: Simultáneo vs Uno a Uno (Secuencial)
+                if (!enCuentaRegresiva && !enTiempoFinalGracia) ...[
+                  SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment<bool>(
+                        value: false,
+                        label: Text("Simultáneo"),
+                        icon: Icon(Icons.style_outlined),
+                      ),
+                      ButtonSegment<bool>(
+                        value: true,
+                        label: Text("Uno a Uno"),
+                        icon: Icon(Icons.touch_app_outlined),
+                      ),
+                    ],
+                    selected: {soloUnoAlaVez},
+                    onSelectionChanged: (Set<bool> newSelection) {
+                      setState(() {
+                        soloUnoAlaVez = newSelection.first;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                if (enTiempoFinalGracia) ...[
                   Chip(
-                    avatar:
-                        const Icon(Icons.timer, color: Colors.white, size: 18),
+                    avatar: const Icon(Icons.hourglass_bottom, color: Colors.white, size: 18),
                     label: Text(
-                      enTiempoGracia
-                          ? "Tiempo de Gracia (10s)"
-                          : loc.tiempoRestante(tiempoRestanteSeg),
+                      "Tiempo final: ${segundosGraciaRestantes}s",
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
-                    backgroundColor: enTiempoGracia
-                        ? Colors.purple
-                        : (tiempoRestanteSeg <= 5
-                            ? Colors.redAccent
-                            : Colors.orange),
+                    backgroundColor: Colors.purple,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (modo == 'tiempo' && !enCuentaRegresiva) ...[
+                  Chip(
+                    avatar:
+                        const Icon(Icons.timer, color: Colors.white, size: 18),
+                    label: Text(
+                      loc.tiempoRestante(tiempoRestanteSeg),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    backgroundColor: tiempoRestanteSeg <= 5
+                        ? Colors.redAccent
+                        : Colors.orange,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 6),
                   ),
                   const SizedBox(height: 16),
                 ],
+
                 if (enCuentaRegresiva) ...[
                   Container(
                     width: 140,
@@ -700,63 +719,40 @@ class _EntrenamientoActivoScreenState
                       ),
                     ),
                   ),
-                ] else if (modo == 'manual' || modo == 'continuo') ...[
+                ] else ...[
                   Wrap(
                     alignment: WrapAlignment.center,
-                    spacing: 10,
-                    runSpacing: 10,
+                    spacing: 12,
+                    runSpacing: 12,
                     children: List.generate(cantidadPods, (index) {
-                      bool estaEncendido = modo == 'continuo'
-                          ? podsActivos.containsKey(index)
-                          : (ledEncendido && podActivoActual == index);
+                      bool isPodOn = podsEncendidos.contains(index);
+                      List<int> pRgb = podColores[index] ?? defaultRgb;
+                      Color pColor = Color.fromRGBO(pRgb[0], pRgb[1], pRgb[2], 1.0);
 
                       return _buildPodSquare(
                         podIndex: index,
                         label: "${index + 1}",
-                        isActive: estaEncendido,
-                        activeColor: currentColor,
+                        isActive: isPodOn,
+                        activeColor: pColor,
                         isDark: isDark,
                         loc: loc,
                       );
                     }),
                   ),
-                ] else ...[
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: ledEncendido ? currentColor : Colors.grey.shade300,
-                      boxShadow: ledEncendido
-                          ? [
-                              BoxShadow(
-                                color: currentColor.withValues(alpha: 0.6),
-                                blurRadius: 20,
-                                spreadRadius: 5,
-                              )
-                            ]
-                          : [],
-                    ),
-                    child: Icon(
-                      ledEncendido ? Icons.lightbulb : Icons.lightbulb_outline,
-                      size: 60,
-                      color: ledEncendido ? Colors.white : Colors.grey.shade600,
-                    ),
-                  ),
                 ],
+
                 const SizedBox(height: 24),
+
                 Text(
                   estadoTexto.isEmpty ? loc.preparate : estadoTexto,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: (modo == 'bicolor' && ledEncendido)
-                        ? (esColor1Actual ? Colors.green : Colors.redAccent)
-                        : null,
                   ),
                 ),
                 const SizedBox(height: 16),
+
                 Container(
                   width: double.infinity,
                   padding:
@@ -810,36 +806,35 @@ class _EntrenamientoActivoScreenState
                                   isDark ? Colors.grey[400] : Colors.grey[600],
                             ),
                           ),
-                          if (modo == 'bicolor' || modo == 'continuo') ...[
-                            const SizedBox(width: 16),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.redAccent.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                loc.erroresCometidos(cantidadErrores),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.redAccent,
-                                ),
+                          const SizedBox(width: 16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              loc.erroresCometidos(cantidadErrores),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.redAccent,
                               ),
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 32),
+
                 SizedBox(
                   width: double.infinity,
                   height: 50,
                   child: OutlinedButton.icon(
-                    onPressed: finalizarEntrenamiento,
+                    onPressed: _solicitarFinalizacionSesion,
                     icon: const Icon(Icons.stop_circle_outlined,
                         color: Colors.redAccent),
                     label: Text(
@@ -878,16 +873,12 @@ class _EntrenamientoActivoScreenState
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          if (modo == 'manual') {
-            _togglePodManual(podIndex);
-          }
-        },
+        onTap: () => _togglePodManual(podIndex),
         borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 90,
-          height: 90,
+          width: 85,
+          height: 85,
           decoration: BoxDecoration(
             color: isActive
                 ? activeColor
@@ -896,7 +887,7 @@ class _EntrenamientoActivoScreenState
             border: Border.all(
               color: isActive
                   ? activeColor
-                  : (isDark ? Colors.grey.shade700 : Colors.black),
+                  : (isDark ? Colors.grey.shade700 : Colors.black26),
               width: 2.5,
             ),
             boxShadow: isActive
@@ -921,7 +912,7 @@ class _EntrenamientoActivoScreenState
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 28,
+                  fontSize: 26,
                   fontWeight: FontWeight.bold,
                   color: isActive
                       ? Colors.white
