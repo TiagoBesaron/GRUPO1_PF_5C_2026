@@ -10,6 +10,7 @@ import '../provider/theme_provider.dart';
 import '../provider/user_mode_provider.dart';
 import '../provider/sound_provider.dart';
 import '../provider/locale_provider.dart';
+import '../utils/pdf_downloader.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -19,6 +20,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  String? _descargandoManual;
+
   static const Map<String, String> _idiomasSoportados = {
     'es': '🇦🇷 Español',
     'en': '🇺🇸 English',
@@ -32,6 +35,91 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     'zh': '🇨🇳 中文',
   };
 
+  static const Map<String, Map<String, String>> _textosManuales = {
+    'es': {
+      'userTitle': 'Manual de Usuario',
+      'userSub': 'Guía de uso y glosario (PDF)',
+      'techTitle': 'Manual Técnico',
+      'techSub': 'Arquitectura y especificaciones (PDF)',
+      'ok': 'Manual descargado correctamente',
+      'err':
+          'No se pudo descargar el manual. Verificá que el PDF esté en assets/docs/.',
+    },
+    'en': {
+      'userTitle': 'User Manual',
+      'userSub': 'Usage guide & glossary (PDF)',
+      'techTitle': 'Technical Manual',
+      'techSub': 'Architecture & specifications (PDF)',
+      'ok': 'Manual downloaded successfully',
+      'err': 'Could not download manual. Make sure the PDF is in assets/docs/.',
+    },
+    'pt': {
+      'userTitle': 'Manual do Usuário',
+      'userSub': 'Guia de uso e glossário (PDF)',
+      'techTitle': 'Manual Técnico',
+      'techSub': 'Arquitetura e especificações (PDF)',
+      'ok': 'Manual baixado com sucesso',
+      'err': 'Não foi possível baixar o manual. Verifique assets/docs/.',
+    },
+    'it': {
+      'userTitle': 'Manuale Utente',
+      'userSub': 'Guida all’uso e glossario (PDF)',
+      'techTitle': 'Manuale Tecnico',
+      'techSub': 'Architettura e specifiche (PDF)',
+      'ok': 'Manuale scaricato correttamente',
+      'err': 'Impossibile scaricare il manuale. Controlla assets/docs/.',
+    },
+    'fr': {
+      'userTitle': 'Manuel d’utilisation',
+      'userSub': 'Guide d’utilisation et glossaire (PDF)',
+      'techTitle': 'Manuel Technique',
+      'techSub': 'Architecture et spécifications (PDF)',
+      'ok': 'Manuel téléchargé avec succès',
+      'err': 'Impossible de télécharger le manuel. Vérifiez assets/docs/.',
+    },
+    'de': {
+      'userTitle': 'Benutzerhandbuch',
+      'userSub': 'Bedienungsanleitung & Glossar (PDF)',
+      'techTitle': 'Technisches Handbuch',
+      'techSub': 'Architektur & Spezifikationen (PDF)',
+      'ok': 'Handbuch erfolgreich heruntergeladen',
+      'err':
+          'Handbuch konnte nicht heruntergeladen werden. Prüfe assets/docs/.',
+    },
+    'ar': {
+      'userTitle': 'دليل المستخدم',
+      'userSub': 'دليل الاستخدام والمصطلحات (PDF)',
+      'techTitle': 'الدليل التقني',
+      'techSub': 'البنية والمواصفات التقنية (PDF)',
+      'ok': 'تم تنزيل الدليل بنجاح',
+      'err': 'تعذر تنزيل الدليل. تحقق من وجود الملف في assets/docs/.',
+    },
+    'he': {
+      'userTitle': 'מדריך למשתמש',
+      'userSub': 'מדריך שימוש ומילון מונחים (PDF)',
+      'techTitle': 'מדריך טכני',
+      'techSub': 'ארכיטקטורה ומפרט טכני (PDF)',
+      'ok': 'המדריך הורד בהצלחה',
+      'err': 'לא ניתן להוריד את המדריך. בדוק את תיקיית assets/docs/.',
+    },
+    'ja': {
+      'userTitle': 'ユーザーマニュアル',
+      'userSub': '操作ガイドと用語集 (PDF)',
+      'techTitle': 'テクニカルマニュアル',
+      'techSub': 'アーキテクチャと仕様書 (PDF)',
+      'ok': 'マニュアルをダウンロードしました',
+      'err': 'マニュアルをダウンロードできませんでした。assets/docs/ を確認してください。',
+    },
+    'zh': {
+      'userTitle': '用户手册',
+      'userSub': '使用指南与术语表 (PDF)',
+      'techTitle': '技术手册',
+      'techSub': '系统架构与技术规范 (PDF)',
+      'ok': '手册下载成功',
+      'err': '无法下载手册，请检查 assets/docs/ 目录。',
+    },
+  };
+
   bool _esCumpleanosHoy(String? fechaIsoStr) {
     if (fechaIsoStr == null || fechaIsoStr.isEmpty) return false;
     try {
@@ -40,6 +128,87 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return fechaNac.day == hoy.day && fechaNac.month == hoy.month;
     } catch (_) {
       return false;
+    }
+  }
+
+  Future<void> _descargarManual({
+    required String tipo,
+    required String assetPath,
+    required String fileName,
+    required Map<String, String> textos,
+  }) async {
+    if (_descargandoManual != null) return;
+
+    setState(() => _descargandoManual = tipo);
+
+    try {
+      await descargarYAbrirPdfAsset(
+        assetPath: assetPath,
+        fileName: fileName,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            backgroundColor: Colors.green.shade700,
+            duration: const Duration(seconds: 3),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_outline, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    textos['ok']!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+    } catch (e) {
+      debugPrint("Error descargando manual ($assetPath): $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 4),
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    textos['err']!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+    } finally {
+      if (mounted) {
+        setState(() => _descargandoManual = null);
+      }
     }
   }
 
@@ -57,6 +226,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _idiomasSoportados.containsKey(currentLocale.languageCode)
             ? currentLocale.languageCode
             : 'es';
+    final textosManuales =
+        _textosManuales[selectedLang] ?? _textosManuales['es']!;
 
     return Scaffold(
       appBar: AppBar(
@@ -481,6 +652,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     leading: const Icon(Icons.info_outline, color: Colors.blue),
                     title: Text(loc.appTitle),
                     subtitle: Text(loc.versionApp),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.menu_book_outlined,
+                        color: Colors.blue),
+                    title: Text(textosManuales['userTitle']!),
+                    subtitle: Text(textosManuales['userSub']!),
+                    trailing: _descargandoManual == 'usuario'
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download_rounded,
+                            color: Colors.blue),
+                    onTap: () => _descargarManual(
+                      tipo: 'usuario',
+                      assetPath: 'assets/docs/manual_usuario.pdf',
+                      fileName: 'Manual_de_Usuario_Activelo.pdf',
+                      textos: textosManuales,
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.engineering_outlined,
+                        color: Colors.blue),
+                    title: Text(textosManuales['techTitle']!),
+                    subtitle: Text(textosManuales['techSub']!),
+                    trailing: _descargandoManual == 'tecnico'
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download_rounded,
+                            color: Colors.blue),
+                    onTap: () => _descargarManual(
+                      tipo: 'tecnico',
+                      assetPath: 'assets/docs/manual_tecnico.pdf',
+                      fileName: 'Manual_Tecnico_Activelo.pdf',
+                      textos: textosManuales,
+                    ),
                   ),
                   const Divider(height: 1),
                   ListTile(

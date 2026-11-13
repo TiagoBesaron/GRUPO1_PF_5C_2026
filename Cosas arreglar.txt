@@ -1,5 +1,2 @@
-3. Que no haya ningun error con el bluetooth.
-4. QUe la foto del perfil principal aparezca en la home.
-5. Manual de usuario.
-6. Agregar modo de fer.
+
 7. Generar apk y app de windows  para la expo.
