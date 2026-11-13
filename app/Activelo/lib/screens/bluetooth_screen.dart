@@ -102,32 +102,81 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
     }
   }
 
-  Future<void> _conectarDispositivo(BluetoothDevice device, AppLocalizations loc) async {
+  void _mostrarAvisoFlotante({
+    required String mensaje,
+    required IconData icono,
+    required Color colorFondo,
+  }) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 76),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          backgroundColor: colorFondo,
+          elevation: 6,
+          duration: const Duration(seconds: 4),
+          content: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icono,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  mensaje,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+  }
+
+  Future<void> _conectarDispositivo(
+      BluetoothDevice device, AppLocalizations loc) async {
     await _stopScan();
     if (mounted) {
       setState(() => isConnecting = true);
     }
 
+    final nombre =
+        device.platformName.isNotEmpty ? device.platformName : 'Pod Activelo';
+
     try {
       await ref.read(bluetoothProvider.notifier).conectar(device);
-      if (mounted) {
-        final nombre = device.platformName.isNotEmpty ? device.platformName : 'ESP32';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(loc.conectadoExitosamente(nombre)),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      _mostrarAvisoFlotante(
+        mensaje: loc.conectadoExitosamente(nombre),
+        icono: Icons.bluetooth_connected_rounded,
+        colorFondo: Colors.green.shade700,
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(loc.errorAlConectar(e.toString())),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
+      debugPrint("Detalle técnico del fallo BLE: $e");
+      _mostrarAvisoFlotante(
+        mensaje: "No ha sido posible conectarse a $nombre",
+        icono: Icons.bluetooth_disabled_rounded,
+        colorFondo: Colors.red.shade700,
+      );
     } finally {
       if (mounted) {
         setState(() => isConnecting = false);
@@ -137,14 +186,11 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
 
   Future<void> _desconectarDispositivo(AppLocalizations loc) async {
     await ref.read(bluetoothProvider.notifier).desconectar();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(loc.dispositivoDesconectado),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    }
+    _mostrarAvisoFlotante(
+      mensaje: loc.dispositivoDesconectado,
+      icono: Icons.bluetooth_disabled_rounded,
+      colorFondo: Colors.orange.shade800,
+    );
   }
 
   @override
@@ -180,13 +226,16 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
             children: [
               if (btState.conectado && btState.device != null) ...[
                 Card(
-                  color: isDark ? const Color(0xFF1B3A2B) : const Color(0xFFE8F5E9),
+                  color: isDark
+                      ? const Color(0xFF1B3A2B)
+                      : const Color(0xFFE8F5E9),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                     side: const BorderSide(color: Colors.green, width: 1.5),
                   ),
                   child: ListTile(
-                    leading: const Icon(Icons.bluetooth_connected, color: Colors.green, size: 30),
+                    leading: const Icon(Icons.bluetooth_connected,
+                        color: Colors.green, size: 30),
                     title: Text(
                       btState.device!.platformName.isNotEmpty
                           ? btState.device!.platformName
@@ -220,7 +269,8 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
 
               Text(
                 loc.dispositivosDisponibles,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 8),
 
@@ -252,21 +302,27 @@ class _BluetoothScreenState extends ConsumerState<BluetoothScreen> {
                             elevation: 1,
                             margin: const EdgeInsets.symmetric(vertical: 4),
                             child: ListTile(
-                              leading: const Icon(Icons.bluetooth, color: Colors.blue),
+                              leading: const Icon(Icons.bluetooth,
+                                  color: Colors.blue),
                               title: Text(
                                 deviceName,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
                               ),
                               subtitle: Text('ID: ${device.remoteId}'),
                               trailing: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: isThisConnected ? Colors.green : Colors.blue,
+                                  backgroundColor: isThisConnected
+                                      ? Colors.green
+                                      : Colors.blue,
                                   foregroundColor: Colors.white,
                                 ),
                                 onPressed: isConnecting || isThisConnected
                                     ? null
                                     : () => _conectarDispositivo(device, loc),
-                                child: Text(isThisConnected ? loc.conectado : loc.conectar),
+                                child: Text(isThisConnected
+                                    ? loc.conectado
+                                    : loc.conectar),
                               ),
                             ),
                           );

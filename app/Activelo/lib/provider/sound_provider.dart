@@ -7,33 +7,37 @@ final soundEnabledProvider = StateProvider<bool>((ref) => true);
 
 // Servicio para Reproducción de Audio
 final soundServiceProvider = Provider<SoundService>((ref) {
-  return SoundService(ref);
+  final service = SoundService(ref);
+  ref.onDispose(service.dispose);
+  return service;
 });
 
 class SoundService {
   final Ref _ref;
-  AudioPlayer? _player;
+  final AudioPlayer _player = AudioPlayer();
+  DateTime? _ultimoPlay;
+  String? _ultimoArchivo;
 
-  SoundService(this._ref);
+  SoundService(this._ref) {
+    _player.setReleaseMode(ReleaseMode.stop);
+  }
 
   Future<void> _playSound(String defaultFileName) async {
     final isEnabled = _ref.read(soundEnabledProvider);
     if (!isEnabled) return;
 
+    final ahora = DateTime.now();
+    if (_ultimoArchivo == defaultFileName &&
+        _ultimoPlay != null &&
+        ahora.difference(_ultimoPlay!).inMilliseconds < 600) {
+      return;
+    }
+    _ultimoArchivo = defaultFileName;
+    _ultimoPlay = ahora;
+
     try {
-      final oldPlayer = _player;
-      _player = null;
-      if (oldPlayer != null) {
-        try {
-          await oldPlayer.stop();
-          await oldPlayer.dispose();
-        } catch (_) {}
-      }
-
-      final player = AudioPlayer();
-      _player = player;
-
-      await player.play(AssetSource('sounds/$defaultFileName'));
+      await _player.stop();
+      await _player.play(AssetSource('sounds/$defaultFileName'));
     } catch (e) {
       debugPrint("Error reproduciendo audio ($defaultFileName): $e");
     }
@@ -45,5 +49,9 @@ class SoundService {
 
   Future<void> playFinish() async {
     await _playSound('fin.mp3');
+  }
+
+  void dispose() {
+    _player.dispose();
   }
 }

@@ -20,6 +20,7 @@ class BluetoothState {
   final bool conectado;
   final String ultimoTiempo;
   final int reactionTicket;
+  final int desconexionInesperadaTicket;
   final BluetoothCharacteristic? characteristicRx;
 
   const BluetoothState({
@@ -27,6 +28,7 @@ class BluetoothState {
     this.conectado = false,
     this.ultimoTiempo = "0.000 s",
     this.reactionTicket = 0,
+    this.desconexionInesperadaTicket = 0,
     this.characteristicRx,
   });
 
@@ -35,6 +37,7 @@ class BluetoothState {
     bool? conectado,
     String? ultimoTiempo,
     int? reactionTicket,
+    int? desconexionInesperadaTicket,
     BluetoothCharacteristic? characteristicRx,
     bool limpiarDevice = false,
   }) {
@@ -43,6 +46,8 @@ class BluetoothState {
       conectado: conectado ?? this.conectado,
       ultimoTiempo: ultimoTiempo ?? this.ultimoTiempo,
       reactionTicket: reactionTicket ?? this.reactionTicket,
+      desconexionInesperadaTicket:
+          desconexionInesperadaTicket ?? this.desconexionInesperadaTicket,
       characteristicRx: characteristicRx ?? this.characteristicRx,
     );
   }
@@ -62,7 +67,7 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
     _adapterStateSub = FlutterBluePlus.adapterState.listen((adapterState) {
       if (adapterState != BluetoothAdapterState.on && state.conectado) {
         debugPrint("Bluetooth desactivado en el dispositivo. Desconectando...");
-        desconectar();
+        desconectar(inesperada: true);
       }
     });
   }
@@ -78,8 +83,9 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
 
       _connectionStateSub = device.connectionState.listen((connState) {
         if (connState == BluetoothConnectionState.disconnected) {
-          debugPrint("Dispositivo desconectado detectado por connectionState stream.");
-          desconectar();
+          debugPrint(
+              "Dispositivo desconectado detectado por connectionState stream.");
+          desconectar(inesperada: true);
         }
       });
 
@@ -119,15 +125,19 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
                           reactionTicket: state.reactionTicket + 1,
                         );
 
-                        final user = FirebaseAuth.instance.currentUser;
-                        if (user != null) {
-                          final ref = FirebaseDatabase.instance
-                              .ref("usuarios/${user.uid}/tiempos");
-                          await ref.push().set({
-                            "tiempoMs": ms,
-                            "tiempoSeg": segundos,
-                            "timestamp": ServerValue.timestamp,
-                          });
+                        try {
+                          final user = FirebaseAuth.instance.currentUser;
+                          if (user != null) {
+                            final ref = FirebaseDatabase.instance
+                                .ref("usuarios/${user.uid}/tiempos");
+                            await ref.push().set({
+                              "tiempoMs": ms,
+                              "tiempoSeg": segundos,
+                              "timestamp": ServerValue.timestamp,
+                            });
+                          }
+                        } catch (e) {
+                          debugPrint("Error al guardar tiempo individual: $e");
                         }
                       }
                     }
@@ -135,7 +145,7 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
                 },
                 onError: (e) {
                   debugPrint("Error en canal de notificaciones BLE: $e");
-                  desconectar();
+                  desconectar(inesperada: true);
                 },
               );
             }
@@ -157,7 +167,7 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
       _watchdogTimer = Timer.periodic(const Duration(seconds: 2), (_) {
         if (!device.isConnected) {
           debugPrint("Watchdog: ESP32 apagado o fuera de alcance.");
-          desconectar();
+          desconectar(inesperada: true);
         }
       });
     } catch (error) {
@@ -167,19 +177,25 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
   }
 
   Future<void> enviarComando(String comando) async {
+    if (!state.conectado || state.characteristicRx == null) return;
+
+    if (state.device != null && !state.device!.isConnected) {
+      await desconectar(inesperada: true);
+      return;
+    }
+
     try {
-      if (state.conectado && state.characteristicRx != null) {
-        await state.characteristicRx!
-            .write(utf8.encode(comando))
-            .timeout(const Duration(seconds: 3));
-      }
+      await state.characteristicRx!
+          .write(utf8.encode(comando))
+          .timeout(const Duration(seconds: 3));
     } catch (e) {
       debugPrint("Fallo al escribir comando BLE (Pod posiblemente apagado): $e");
-      await desconectar();
+      await desconectar(inesperada: true);
     }
   }
 
-  Future<void> desconectar() async {
+  Future<void> desconectar({bool inesperada = false}) async {
+    final estabaConectado = state.conectado;
     final dev = state.device;
     final notifySub = _notifySubscription;
     final connSub = _connectionStateSub;
@@ -190,7 +206,7 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
     _watchdogTimer = null;
 
     // 1. Limpiamos el estado primero para que la UI responda al instante y no se trabe
-    _limpiarEstado();
+    _limpiarEstado(inesperada: inesperada && estabaConectado);
 
     // 2. Cerramos streams y conexión física con timeout para no colgarse si el ESP32 está apagado
     try {
@@ -210,8 +226,11 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
     }
   }
 
-  void _limpiarEstado() {
-    state = const BluetoothState();
+  void _limpiarEstado({bool inesperada = false}) {
+    state = BluetoothState(
+      desconexionInesperadaTicket:
+          state.desconexionInesperadaTicket + (inesperada ? 1 : 0),
+    );
   }
 
   @override

@@ -36,6 +36,127 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     'zh': '🇨🇳 中文',
   };
 
+  static const Map<String, Map<String, String>> _textosReset = {
+    'es': {
+      'forgot': '¿Olvidaste tu contraseña?',
+      'title': 'Restablecer contraseña',
+      'desc':
+          'Ingresá tu correo electrónico y te enviaremos un enlace para crear una nueva contraseña.',
+      'cancel': 'Cancelar',
+      'send': 'Enviar enlace',
+      'sent':
+          'Si el correo está registrado, te enviamos un enlace para restablecer tu contraseña. Revisá también spam.',
+      'notFound': 'No encontramos ninguna cuenta con ese correo.',
+      'error': 'No se pudo enviar el correo. Intentá de nuevo más tarde.',
+    },
+    'en': {
+      'forgot': 'Forgot password?',
+      'title': 'Reset password',
+      'desc':
+          'Enter your email address and we will send you a link to create a new password.',
+      'cancel': 'Cancel',
+      'send': 'Send link',
+      'sent':
+          'If the email is registered, we sent you a password reset link. Check your spam folder too.',
+      'notFound': 'No account found with that email.',
+      'error': 'Could not send email. Please try again later.',
+    },
+    'pt': {
+      'forgot': 'Esqueceu sua senha?',
+      'title': 'Redefinir senha',
+      'desc':
+          'Digite seu e-mail e enviaremos um link para criar uma nova senha.',
+      'cancel': 'Cancelar',
+      'send': 'Enviar link',
+      'sent':
+          'Se o e-mail estiver cadastrado, enviamos um link para redefinir sua senha. Verifique também o spam.',
+      'notFound': 'Nenhuma conta encontrada com esse e-mail.',
+      'error': 'Não foi possível enviar o e-mail. Tente novamente mais tarde.',
+    },
+    'it': {
+      'forgot': 'Password dimenticata?',
+      'title': 'Reimposta password',
+      'desc':
+          'Inserisci la tua email e ti invieremo un link per creare una nuova password.',
+      'cancel': 'Annulla',
+      'send': 'Invia link',
+      'sent':
+          'Se l’email è registrata, ti abbiamo inviato un link per reimpostare la password. Controlla anche lo spam.',
+      'notFound': 'Nessun account trovato con questa email.',
+      'error': 'Impossibile inviare l’email. Riprova più tardi.',
+    },
+    'fr': {
+      'forgot': 'Mot de passe oublié ?',
+      'title': 'Réinitialiser le mot de passe',
+      'desc':
+          'Entrez votre adresse e-mail et nous vous enverrons un lien pour créer un nouveau mot de passe.',
+      'cancel': 'Annuler',
+      'send': 'Envoyer le lien',
+      'sent':
+          'Si l’e-mail est enregistré, un lien de réinitialisation vous a été envoyé. Vérifiez aussi vos spams.',
+      'notFound': 'Aucun compte trouvé avec cet e-mail.',
+      'error': 'Impossible d’envoyer l’e-mail. Réessayez plus tard.',
+    },
+    'de': {
+      'forgot': 'Passwort vergessen?',
+      'title': 'Passwort zurücksetzen',
+      'desc':
+          'Gib deine E-Mail-Adresse ein und wir senden dir einen Link zum Erstellen eines neuen Passworts.',
+      'cancel': 'Abbrechen',
+      'send': 'Link senden',
+      'sent':
+          'Falls die E-Mail registriert ist, haben wir dir einen Link gesendet. Prüfe auch den Spam-Ordner.',
+      'notFound': 'Kein Konto mit dieser E-Mail gefunden.',
+      'error':
+          'E-Mail konnte nicht gesendet werden. Bitte später erneut versuchen.',
+    },
+    'ar': {
+      'forgot': 'هل نسيت كلمة المرور؟',
+      'title': 'إعادة تعيين كلمة المرور',
+      'desc':
+          'أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإنشاء كلمة مرور جديدة.',
+      'cancel': 'إلغاء',
+      'send': 'إرسال الرابط',
+      'sent':
+          'إذا كان البريد مسجلاً، فقد أرسلنا رابط إعادة التعيين. تحقق من البريد العشوائي أيضًا.',
+      'notFound': 'لم يتم العثور على حساب بهذا البريد.',
+      'error': 'تعذر إرسال البريد الإلكتروني. حاول لاحقًا.',
+    },
+    'he': {
+      'forgot': 'שכחת סיסמה?',
+      'title': 'איפוס סיסמה',
+      'desc': 'הזן את כתובת האימייל שלך ונשלח לך קישור ליצירת סיסמה חדשה.',
+      'cancel': 'ביטול',
+      'send': 'שלח קישור',
+      'sent':
+          'אם האימייל רשום, שלחנו לך קישור לאיפוס הסיסמה. בדוק גם בתיקיית הספאם.',
+      'notFound': 'לא נמצא חשבון עם אימייל זה.',
+      'error': 'לא ניתן לשלוח את האימייל. נסה שוב מאוחר יותר.',
+    },
+    'ja': {
+      'forgot': 'パスワードをお忘れですか？',
+      'title': 'パスワードの再設定',
+      'desc':
+          'メールアドレスを入力すると、新しいパスワードを作成するリンクをお送りします。',
+      'cancel': 'キャンセル',
+      'send': 'リンクを送信',
+      'sent':
+          '登録されている場合、再設定用リンクを送信しました。迷惑メールフォルダもご確認ください。',
+      'notFound': 'このメールアドレスのアカウントが見つかりません。',
+      'error': 'メールを送信できませんでした。後でもう一度お試しください。',
+    },
+    'zh': {
+      'forgot': '忘记密码？',
+      'title': '重置密码',
+      'desc': '输入您的电子邮箱，我们将向您发送创建新密码的链接。',
+      'cancel': '取消',
+      'send': '发送链接',
+      'sent': '如果该邮箱已注册，我们已发送重置链接，请同时检查垃圾邮件箱。',
+      'notFound': '未找到使用该邮箱的账户。',
+      'error': '无法发送邮件，请稍后再试。',
+    },
+  };
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -55,6 +176,195 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       default:
         return l10n.errorCredencialesIncorrectas;
     }
+  }
+
+  Future<void> _mostrarDialogoRestablecer(
+      AppLocalizations l10n, String langCode) async {
+    final textos = _textosReset[langCode] ?? _textosReset['es']!;
+    final resetEmailController =
+        TextEditingController(text: _emailController.text.trim());
+    final resetFormKey = GlobalKey<FormState>();
+
+    bool enviando = false;
+    String? errorDialog;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.lock_reset_rounded, color: Colors.blue),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  textos['title']!,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Form(
+            key: resetFormKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  textos['desc']!,
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: resetEmailController,
+                  enabled: !enviando,
+                  keyboardType: TextInputType.emailAddress,
+                  onChanged: (_) {
+                    if (errorDialog != null) {
+                      setDialogState(() => errorDialog = null);
+                    }
+                  },
+                  decoration: InputDecoration(
+                    labelText: l10n.correoElectronico,
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return l10n.errorCorreoVacio;
+                    }
+                    final emailRegex = RegExp(
+                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                    );
+                    if (!emailRegex.hasMatch(value.trim())) {
+                      return l10n.errorCorreoInvalido;
+                    }
+                    return null;
+                  },
+                ),
+                if (errorDialog != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    errorDialog!,
+                    style: TextStyle(
+                      color: Colors.red.shade700,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed:
+                  enviando ? null : () => Navigator.of(dialogContext).pop(),
+              child: Text(textos['cancel']!),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: enviando
+                  ? null
+                  : () async {
+                      if (!resetFormKey.currentState!.validate()) return;
+
+                      setDialogState(() {
+                        enviando = true;
+                        errorDialog = null;
+                      });
+
+                      try {
+                        await FirebaseAuth.instance.setLanguageCode(langCode);
+                        await FirebaseAuth.instance.sendPasswordResetEmail(
+                          email: resetEmailController.text.trim(),
+                        );
+
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
+
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            SnackBar(
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              backgroundColor: Colors.green.shade700,
+                              duration: const Duration(seconds: 5),
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.mark_email_read_rounded,
+                                      color: Colors.white),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      textos['sent']!,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                      } on FirebaseAuthException catch (e) {
+                        if (!dialogContext.mounted) return;
+                        setDialogState(() {
+                          enviando = false;
+                          if (e.code == 'user-not-found') {
+                            errorDialog = textos['notFound'];
+                          } else if (e.code == 'invalid-email') {
+                            errorDialog = l10n.errorCorreoInvalido;
+                          } else {
+                            errorDialog = textos['error'];
+                          }
+                        });
+                      } catch (_) {
+                        if (!dialogContext.mounted) return;
+                        setDialogState(() {
+                          enviando = false;
+                          errorDialog = textos['error'];
+                        });
+                      }
+                    },
+              child: enviando
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(textos['send']!),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    resetEmailController.dispose();
   }
 
   Future<void> _login(AppLocalizations l10n) async {
@@ -122,6 +432,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _idiomasDisponibles.containsKey(currentLocale.languageCode)
             ? currentLocale.languageCode
             : 'es';
+    final textosResetActual =
+        _textosReset[selectedLang] ?? _textosReset['es']!;
 
     return Scaffold(
       body: SafeArea(
@@ -322,8 +634,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       return null;
                                     },
                                   ),
+                                  Align(
+                                    alignment: AlignmentDirectional.centerEnd,
+                                    child: TextButton(
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                          vertical: 4,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      onPressed: _isLoading
+                                          ? null
+                                          : () => _mostrarDialogoRestablecer(
+                                              l10n, selectedLang),
+                                      child: Text(
+                                        textosResetActual['forgot']!,
+                                        style: const TextStyle(
+                                          color: Colors.blue,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                   if (_errorMessage != null) ...[
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: 12),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 12,
@@ -359,7 +697,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       ),
                                     ),
                                   ],
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 16),
                                   SizedBox(
                                     height: 50,
                                     child: ElevatedButton(
@@ -420,7 +758,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(height: 16),
                         Text.rich(
                           TextSpan(
-                            text: l10n.alIngresarAceptas,
+                            text: '${l10n.alIngresarAceptas} ',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),

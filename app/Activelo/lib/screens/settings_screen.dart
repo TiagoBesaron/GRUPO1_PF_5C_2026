@@ -19,17 +19,17 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  final Map<String, String> _idiomasSoportados = const {
-    'es': 'Español',
-    'en': 'English',
-    'fr': 'Français',
-    'it': 'Italiano',
-    'de': 'Deutsch',
-    'pt': 'Português',
-    'he': 'עברית (Hebreo)',
-    'ar': 'العربية (Árabe)',
-    'ja': '日本語 (Japonés)',
-    'zh': '中文 (Chino)',
+  static const Map<String, String> _idiomasSoportados = {
+    'es': '🇦🇷 Español',
+    'en': '🇺🇸 English',
+    'pt': '🇧🇷 Português',
+    'it': '🇮🇹 Italiano',
+    'fr': '🇫🇷 Français',
+    'de': '🇩🇪 Deutsch',
+    'ar': '🇸🇦 العربية',
+    'he': '🇮🇱 עברית',
+    'ja': '🇯🇵 日本語',
+    'zh': '🇨🇳 中文',
   };
 
   bool _esCumpleanosHoy(String? fechaIsoStr) {
@@ -53,6 +53,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final currentLocale = ref.watch(localeProvider);
     final currentUser = FirebaseAuth.instance.currentUser;
 
+    final selectedLang =
+        _idiomasSoportados.containsKey(currentLocale.languageCode)
+            ? currentLocale.languageCode
+            : 'es';
+
     return Scaffold(
       appBar: AppBar(
         title: Text(loc.ajustes),
@@ -75,7 +80,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   String email = currentUser.email ?? '';
                   String? photoUrl = currentUser.photoURL;
 
-                  if (snapshot.hasData && snapshot.data?.snapshot.value != null) {
+                  if (snapshot.hasData &&
+                      snapshot.data?.snapshot.value != null) {
                     final rawData = snapshot.data!.snapshot.value;
                     if (rawData is Map) {
                       final userData = Map<String, dynamic>.from(rawData);
@@ -119,7 +125,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               width: double.infinity,
                               decoration: const BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Colors.blueAccent, Color(0xFF1565C0)],
+                                  colors: [
+                                    Colors.blueAccent,
+                                    Color(0xFF1565C0)
+                                  ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
@@ -188,7 +197,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               ),
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: Colors.blueAccent),
+                                  side: const BorderSide(
+                                      color: Colors.blueAccent),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
                                   ),
@@ -219,7 +229,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     .ref('usuarios/${currentUser.uid}')
                     .onValue,
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData || snapshot.data?.snapshot.value == null) {
+                  if (!snapshot.hasData ||
+                      snapshot.data?.snapshot.value == null) {
                     return const SizedBox.shrink();
                   }
 
@@ -290,7 +301,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
 
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
                 loc.perfilYModoDeUso,
                 style: const TextStyle(
@@ -316,7 +328,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 20),
 
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
                 loc.aparienciaTema,
                 style: const TextStyle(
@@ -345,23 +358,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const Divider(height: 1),
                   ListTile(
-                    leading: const Icon(Icons.language, color: Colors.blueAccent),
+                    leading:
+                        const Icon(Icons.language, color: Colors.blueAccent),
                     title: Text(loc.idioma),
-                    subtitle: Text(_idiomasSoportados[currentLocale.languageCode] ?? 'Español'),
-                    trailing: DropdownButton<String>(
-                      value: currentLocale.languageCode,
-                      underline: const SizedBox(),
-                      items: _idiomasSoportados.entries.map((entry) {
-                        return DropdownMenuItem<String>(
-                          value: entry.key,
-                          child: Text(entry.value),
-                        );
-                      }).toList(),
-                      onChanged: (langCode) {
-                        if (langCode != null) {
-                          ref.read(localeProvider.notifier).cambiarIdioma(langCode);
-                        }
-                      },
+                    subtitle:
+                        Text(_idiomasSoportados[selectedLang] ?? '🇦🇷 Español'),
+                    trailing: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selectedLang,
+                        borderRadius: BorderRadius.circular(12),
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 20,
+                        ),
+                        items: _idiomasSoportados.entries.map((entry) {
+                          return DropdownMenuItem<String>(
+                            value: entry.key,
+                            child: Text(
+                              entry.value,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (langCode) {
+                          if (langCode != null) {
+                            ref
+                                .read(localeProvider.notifier)
+                                .cambiarIdioma(langCode);
+                          }
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -370,7 +397,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 20),
 
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
                 loc.sonidoRetroalimentacion,
                 style: const TextStyle(
@@ -396,7 +424,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 20),
 
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
                 loc.cuentaPerfil,
                 style: const TextStyle(
@@ -433,7 +462,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 20),
 
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
               child: Text(
                 loc.informacion,
                 style: const TextStyle(

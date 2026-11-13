@@ -41,6 +41,29 @@ class HomeScreen extends ConsumerWidget {
         Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    ref.listen<BluetoothState>(bluetoothProvider, (prev, next) {
+      if (prev != null &&
+          prev.desconexionInesperadaTicket != next.desconexionInesperadaTicket) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.bluetooth_disabled, color: Colors.white),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(loc.errorDesconexionMensaje),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.redAccent,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+      }
+    });
+
     final activePerfilId =
         esModoProfesional ? (perfilActivo?.id ?? "principal") : "principal";
 
@@ -91,8 +114,9 @@ class HomeScreen extends ConsumerWidget {
                   builder: (context, snapshotUser) {
                     String nombreMostrado =
                         perfilActivo?.nombre ?? loc.perfilPrincipal;
-                    String subtituloMostrado =
-                        perfilActivo == null ? loc.perfilPrincipalPropietario : '';
+                    String subtituloMostrado = perfilActivo == null
+                        ? loc.perfilPrincipalPropietario
+                        : '';
                     String? photoUrlMostrada =
                         perfilActivo == null ? user?.photoURL : null;
 

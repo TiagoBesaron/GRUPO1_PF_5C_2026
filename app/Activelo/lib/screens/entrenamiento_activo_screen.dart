@@ -79,6 +79,8 @@ class _EntrenamientoActivoScreenState
       cuentaRegresiva = 3;
     });
 
+    ref.read(soundServiceProvider).playStart();
+
     _timerCuentaRegresiva?.cancel();
     _timerCuentaRegresiva =
         Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -96,8 +98,6 @@ class _EntrenamientoActivoScreenState
         setState(() {
           enCuentaRegresiva = false;
         });
-
-        ref.read(soundServiceProvider).playStart();
 
         if (modo == 'tiempo') {
           tiempoRestanteSeg = tiempoLimiteSeg;
