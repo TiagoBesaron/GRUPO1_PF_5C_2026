@@ -1,0 +1,8 @@
+com.example.Activelo-pngs-0 C:\Users\devandroid\Documents\GitHub\GRUPO1_PF_5C_2026\app\Activelo\android\build\generated\res\pngs\release
+com.example.Activelo-updated_navigation_xml-1 C:\Users\devandroid\Documents\GitHub\GRUPO1_PF_5C_2026\app\Activelo\android\build\generated\updated_navigation_xml\release
+com.example.Activelo-packageReleaseResources-2 C:\Users\devandroid\Documents\GitHub\GRUPO1_PF_5C_2026\app\Activelo\android\build\intermediates\incremental\release\packageReleaseResources\merged.dir
+com.example.Activelo-packageReleaseResources-3 C:\Users\devandroid\Documents\GitHub\GRUPO1_PF_5C_2026\app\Activelo\android\build\intermediates\incremental\release\packageReleaseResources\stripped.dir
+com.example.Activelo-merged-not-compiled-resources-4 C:\Users\devandroid\Documents\GitHub\GRUPO1_PF_5C_2026\app\Activelo\android\build\intermediates\merged-not-compiled-resources\release
+com.example.Activelo-release-5 C:\Users\devandroid\Documents\GitHub\GRUPO1_PF_5C_2026\app\Activelo\android\build\intermediates\merged_res\release\mergeReleaseResources
+com.example.Activelo-main-6 C:\Users\devandroid\Documents\GitHub\GRUPO1_PF_5C_2026\app\Activelo\android\src\main\res
+com.example.Activelo-release-7 C:\Users\devandroid\Documents\GitHub\GRUPO1_PF_5C_2026\app\Activelo\android\src\release\res
