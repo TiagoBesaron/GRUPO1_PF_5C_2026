@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -16,6 +17,19 @@ class HomeScreen extends ConsumerWidget {
     return "${seg.toStringAsFixed(3)} s";
   }
 
+  ImageProvider? _obtenerImagen(String? photoUrl) {
+    if (photoUrl == null || photoUrl.isEmpty) return null;
+    if (photoUrl.startsWith('data:image')) {
+      try {
+        final base64Str = photoUrl.split(',').last;
+        return MemoryImage(base64Decode(base64Str));
+      } catch (_) {
+        return null;
+      }
+    }
+    return NetworkImage(photoUrl);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
@@ -23,12 +37,12 @@ class HomeScreen extends ConsumerWidget {
     final btState = ref.watch(bluetoothProvider);
     final perfilActivo = ref.watch(perfilActivoProvider);
     final esModoProfesional = ref.watch(modoProfesionalProvider);
-    final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final activePerfilId = esModoProfesional
-        ? (perfilActivo?.id ?? "principal")
-        : "principal";
+    final activePerfilId =
+        esModoProfesional ? (perfilActivo?.id ?? "principal") : "principal";
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -68,53 +82,139 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 12),
 
               if (esModoProfesional) ...[
-                Material(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    onTap: () => context.push('/gestionar-perfiles'),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: perfilActivo != null ? Colors.blueAccent : Colors.grey,
-                            child: Icon(
-                              perfilActivo != null ? Icons.person : Icons.people_outline,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  loc.usuarioActivo,
-                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                StreamBuilder<DatabaseEvent>(
+                  stream: user != null
+                      ? FirebaseDatabase.instance
+                          .ref('usuarios/${user.uid}')
+                          .onValue
+                      : const Stream.empty(),
+                  builder: (context, snapshotUser) {
+                    String nombreMostrado =
+                        perfilActivo?.nombre ?? loc.perfilPrincipal;
+                    String subtituloMostrado =
+                        perfilActivo == null ? loc.perfilPrincipalPropietario : '';
+                    String? photoUrlMostrada =
+                        perfilActivo == null ? user?.photoURL : null;
+
+                    if (snapshotUser.hasData &&
+                        snapshotUser.data!.snapshot.value is Map) {
+                      final userData = Map<String, dynamic>.from(
+                          snapshotUser.data!.snapshot.value as Map);
+
+                      if (perfilActivo == null) {
+                        if (userData['nombre'] != null &&
+                            userData['nombre'].toString().trim().isNotEmpty) {
+                          nombreMostrado = userData['nombre'].toString().trim();
+                        } else if (user?.displayName != null &&
+                            user!.displayName!.trim().isNotEmpty) {
+                          nombreMostrado = user.displayName!.trim();
+                        }
+                        if (userData['photoUrl'] != null &&
+                            userData['photoUrl'].toString().isNotEmpty) {
+                          photoUrlMostrada = userData['photoUrl'].toString();
+                        }
+                      } else if (userData['perfiles'] is Map) {
+                        final perfilesMap =
+                            Map<String, dynamic>.from(userData['perfiles']);
+                        final perfilRaw = perfilesMap[perfilActivo.id];
+                        if (perfilRaw is Map) {
+                          if (perfilRaw['nombre'] != null &&
+                              perfilRaw['nombre'].toString().trim().isNotEmpty) {
+                            nombreMostrado =
+                                perfilRaw['nombre'].toString().trim();
+                          }
+                          subtituloMostrado =
+                              (perfilRaw['notas'] ?? '').toString().trim();
+                          if (perfilRaw['photoUrl'] != null &&
+                              perfilRaw['photoUrl'].toString().isNotEmpty) {
+                            photoUrlMostrada = perfilRaw['photoUrl'].toString();
+                          }
+                        }
+                      }
+                    }
+
+                    final avatarImg = _obtenerImagen(photoUrlMostrada);
+
+                    return Material(
+                      color: isDark
+                          ? const Color(0xFF1E293B)
+                          : Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      child: InkWell(
+                        onTap: () => context.push('/gestionar-perfiles'),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor: Colors.blueAccent,
+                                backgroundImage: avatarImg,
+                                child: avatarImg == null
+                                    ? Text(
+                                        nombreMostrado.isNotEmpty
+                                            ? nombreMostrado[0].toUpperCase()
+                                            : 'U',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      loc.usuarioActivo,
+                                      style: const TextStyle(
+                                          fontSize: 11, color: Colors.grey),
+                                    ),
+                                    Text(
+                                      nombreMostrado,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (subtituloMostrado.isNotEmpty)
+                                      Text(
+                                        subtituloMostrado,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark
+                                              ? Colors.grey.shade400
+                                              : Colors.grey.shade700,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                  ],
                                 ),
-                                Text(
-                                  perfilActivo?.nombre ?? loc.perfilPrincipal,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: () =>
+                                    context.push('/gestionar-perfiles'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12),
                                 ),
-                              ],
-                            ),
+                                child: Text(loc.cambiar),
+                              ),
+                            ],
                           ),
-                          OutlinedButton(
-                            onPressed: () => context.push('/gestionar-perfiles'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                            ),
-                            child: Text(loc.cambiar),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
               ],
@@ -133,7 +233,9 @@ class HomeScreen extends ConsumerWidget {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                        color: isDark
+                            ? Colors.grey.shade800
+                            : Colors.grey.shade200,
                       ),
                     ),
                     child: Row(
@@ -141,12 +243,18 @@ class HomeScreen extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: btState.conectado ? Colors.green.shade50 : Colors.red.shade50,
+                            color: btState.conectado
+                                ? Colors.green.shade50
+                                : Colors.red.shade50,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
-                            btState.conectado ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
-                            color: btState.conectado ? Colors.green : Colors.redAccent,
+                            btState.conectado
+                                ? Icons.bluetooth_connected
+                                : Icons.bluetooth_disabled,
+                            color: btState.conectado
+                                ? Colors.green
+                                : Colors.redAccent,
                             size: 22,
                           ),
                         ),
@@ -165,10 +273,17 @@ class HomeScreen extends ConsumerWidget {
                               const SizedBox(height: 2),
                               Text(
                                 btState.conectado
-                                    ? loc.esp32Conectado(btState.device?.platformName.isNotEmpty == true ? btState.device!.platformName : loc.podBle)
+                                    ? loc.esp32Conectado(
+                                        btState.device?.platformName
+                                                    .isNotEmpty ==
+                                                true
+                                            ? btState.device!.platformName
+                                            : loc.podBle)
                                     : loc.esp32Desconectado,
                                 style: TextStyle(
-                                  color: btState.conectado ? Colors.green : Colors.grey,
+                                  color: btState.conectado
+                                      ? Colors.green
+                                      : Colors.grey,
                                   fontSize: 13,
                                 ),
                               ),
@@ -194,6 +309,7 @@ class HomeScreen extends ConsumerWidget {
                     : const Stream.empty(),
                 builder: (context, snapshot) {
                   num? mejorSeg;
+                  num? mejorPromedioSeg;
                   num? ultimoSeg;
                   num? promedioSeg;
                   int toquesUltimaSesion = 0;
@@ -210,12 +326,15 @@ class HomeScreen extends ConsumerWidget {
                       rawData.forEach((key, value) {
                         if (value is Map) {
                           final perfilIdBD = value['perfil_id'] ?? 'principal';
-                          
-                          if (!esModoProfesional || perfilIdBD == activePerfilId) {
+
+                          if (!esModoProfesional ||
+                              perfilIdBD == activePerfilId) {
                             final tiemposRaw = value['tiempos'];
                             List<double> tiempos = [];
                             if (tiemposRaw is List) {
-                              tiempos = tiemposRaw.map((t) => (t as num).toDouble()).toList();
+                              tiempos = tiemposRaw
+                                  .map((t) => (t as num).toDouble())
+                                  .toList();
                             } else if (tiemposRaw is Map) {
                               tiemposRaw.forEach((k, v) {
                                 if (v is num) tiempos.add(v.toDouble());
@@ -224,28 +343,37 @@ class HomeScreen extends ConsumerWidget {
 
                             sesionesUsuario.add({
                               'id': key,
-                              'promedio_seg': (value['promedio_seg'] as num?)?.toDouble() ?? 0.0,
+                              'promedio_seg':
+                                  (value['promedio_seg'] as num?)?.toDouble() ??
+                                      0.0,
                               'tiempos': tiempos,
-                              'timestamp': (value['timestamp'] as num?)?.toInt() ?? 0,
+                              'timestamp':
+                                  (value['timestamp'] as num?)?.toInt() ?? 0,
                             });
                           }
                         }
                       });
 
                       if (sesionesUsuario.isNotEmpty) {
-                        sesionesUsuario.sort((a, b) =>
-                            (b['timestamp'] as num).compareTo(a['timestamp'] as num));
+                        sesionesUsuario.sort((a, b) => (b['timestamp'] as num)
+                            .compareTo(a['timestamp'] as num));
 
                         final ultimaSesion = sesionesUsuario.first;
                         tieneUltimaSesion = true;
-                        final List<double> tiemposUltima = ultimaSesion['tiempos'];
+                        final List<double> tiemposUltima =
+                            ultimaSesion['tiempos'];
                         toquesUltimaSesion = tiemposUltima.length;
                         if (tiemposUltima.isNotEmpty) {
-                          recordUltimaSesion = tiemposUltima.reduce((a, b) => a < b ? a : b);
+                          recordUltimaSesion =
+                              tiemposUltima.reduce((a, b) => a < b ? a : b);
                         } else {
                           recordUltimaSesion = ultimaSesion['promedio_seg'];
                         }
                         ultimoSeg = ultimaSesion['promedio_seg'];
+
+                        mejorPromedioSeg = sesionesUsuario
+                            .map((s) => s['promedio_seg'] as double)
+                            .reduce((a, b) => a < b ? a : b);
 
                         List<double> todosLosTiempos = [];
                         double sumaPromedios = 0.0;
@@ -257,7 +385,8 @@ class HomeScreen extends ConsumerWidget {
                         }
 
                         if (todosLosTiempos.isNotEmpty) {
-                          mejorSeg = todosLosTiempos.reduce((a, b) => a < b ? a : b);
+                          mejorSeg =
+                              todosLosTiempos.reduce((a, b) => a < b ? a : b);
                         }
                         promedioSeg = sumaPromedios / sesionesUsuario.length;
                       }
@@ -282,60 +411,43 @@ class HomeScreen extends ConsumerWidget {
                           const SizedBox(width: 12),
                           Expanded(
                             child: _StatCard(
+                              icon: Icons.star,
+                              iconColor: Colors.orangeAccent,
+                              label: loc.mejorPromedio,
+                              value: _formatTiempo(mejorPromedioSeg),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StatCard(
                               icon: Icons.timer_sharp,
                               iconColor: Colors.blue,
                               label: loc.ultimoPromedio,
                               value: _formatTiempo(ultimoSeg),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cardColor,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _StatCard(
+                              icon: Icons.bar_chart,
+                              iconColor: Colors.green,
+                              label: loc.promedioGeneral,
+                              value: _formatTiempo(promedioSeg),
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.bar_chart,
-                              color: Colors.green,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              loc.promedioGeneral,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              _formatTiempo(promedioSeg),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ],
-                        ),
+                        ],
                       ),
 
                       if (tieneUltimaSesion) ...[
                         const SizedBox(height: 24),
                         Text(
                           esModoProfesional
-                              ? loc.ultimaSesionDe(perfilActivo?.nombre ?? loc.perfilPrincipal)
+                              ? loc.ultimaSesionDe(
+                                  perfilActivo?.nombre ?? loc.perfilPrincipal)
                               : loc.ultimaSesion,
                           style: const TextStyle(
                             fontSize: 18,
@@ -349,7 +461,9 @@ class HomeScreen extends ConsumerWidget {
                             color: cardColor,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                              color: isDark
+                                  ? Colors.grey.shade800
+                                  : Colors.grey.shade200,
                             ),
                           ),
                           child: Column(
@@ -447,7 +561,8 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
@@ -469,6 +584,8 @@ class _StatCard extends StatelessWidget {
               fontSize: 13,
               color: Colors.grey,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
           Text(
@@ -497,7 +614,8 @@ class _QuickAccessItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
+    final cardColor =
+        Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Material(

@@ -757,4 +757,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get textoPrivacidad5 =>
       'You have the right to request the permanent deletion of your account and the total deletion of your training records at any time.';
+
+  @override
+  String get errorCredencialesIncorrectas => 'Incorrect email/password';
 }

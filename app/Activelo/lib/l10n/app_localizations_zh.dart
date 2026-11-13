@@ -734,4 +734,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get textoPrivacidad5 => '您有权随时申请注销账号并删除所有训练记录。';
+
+  @override
+  String get errorCredencialesIncorrectas => '邮箱或密码错误';
 }

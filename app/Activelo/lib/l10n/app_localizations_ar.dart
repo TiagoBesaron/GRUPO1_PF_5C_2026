@@ -754,4 +754,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get textoPrivacidad5 =>
       'يحق لك طلب حذف حسابك بشكل نهائي وإزالة جميع سجلات تمارينك في أي وقت.';
+
+  @override
+  String get errorCredencialesIncorrectas =>
+      'البريد الإلكتروني أو كلمة المرور غير صحيحة';
 }

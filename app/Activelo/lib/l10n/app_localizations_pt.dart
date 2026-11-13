@@ -761,4 +761,7 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get textoPrivacidad5 =>
       'Você tem o direito de solicitar o encerramento definitivo da sua conta e a exclusão total dos seus registros de treino a qualquer momento.';
+
+  @override
+  String get errorCredencialesIncorrectas => 'E-mail/senha incorretos';
 }

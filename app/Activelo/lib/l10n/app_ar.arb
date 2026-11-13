@@ -13,6 +13,7 @@
   "nombreCompleto": "الاسم الكامل",
   "fechaNacimiento": "تاريخ الميلاد",
   "correoElectronico": "البريد الإلكتروني",
+  "errorCredencialesIncorrectas": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
   "contrasena": "كلمة المرور",
   "confirmarContrasena": "تأكيد كلمة المرور",
   "seleccionarFecha": "حدد التاريخ",

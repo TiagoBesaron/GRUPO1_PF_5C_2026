@@ -56,12 +56,12 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
   StreamSubscription<BluetoothConnectionState>? _connectionStateSub;
   StreamSubscription<List<int>>? _notifySubscription;
   StreamSubscription<BluetoothAdapterState>? _adapterStateSub;
+  Timer? _watchdogTimer;
 
-  // Monitor constante del Bluetooth de la Tablet/Celular
   void _escucharEstadoAdapter() {
     _adapterStateSub = FlutterBluePlus.adapterState.listen((adapterState) {
       if (adapterState != BluetoothAdapterState.on && state.conectado) {
-        debugPrint("Bluetooth desactivado en la tablet. Desconectando...");
+        debugPrint("Bluetooth desactivado en el dispositivo. Desconectando...");
         desconectar();
       }
     });
@@ -71,20 +71,20 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
     await desconectar();
 
     try {
-      // Intentar conexión
-      await device.connect(timeout: const Duration(seconds: 6));
+      await device.connect(
+        timeout: const Duration(seconds: 6),
+        autoConnect: false,
+      );
 
-      // Escuchar estado de conexión física en tiempo real
       _connectionStateSub = device.connectionState.listen((connState) {
         if (connState == BluetoothConnectionState.disconnected) {
           debugPrint("Dispositivo desconectado detectado por connectionState stream.");
-          _limpiarEstado();
+          desconectar();
         }
       });
 
       await Future.delayed(const Duration(milliseconds: 300));
 
-      // Descubrir servicios y características
       List<BluetoothService> services = await device.discoverServices();
       BluetoothCharacteristic? rxChar;
 
@@ -93,7 +93,9 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
           for (var char in service.characteristics) {
             if (char.uuid == characteristicUuidTx) {
               try {
-                await char.setNotifyValue(true).timeout(const Duration(seconds: 4));
+                await char
+                    .setNotifyValue(true)
+                    .timeout(const Duration(seconds: 4));
               } catch (e) {
                 debugPrint("Error setNotifyValue: $e");
               }
@@ -149,6 +151,15 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
         conectado: true,
         characteristicRx: rxChar,
       );
+
+      // Vigilancia periódica por si el ESP32 se apaga sin avisar
+      _watchdogTimer?.cancel();
+      _watchdogTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        if (!device.isConnected) {
+          debugPrint("Watchdog: ESP32 apagado o fuera de alcance.");
+          desconectar();
+        }
+      });
     } catch (error) {
       await desconectar();
       rethrow;
@@ -169,20 +180,33 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
   }
 
   Future<void> desconectar() async {
+    final dev = state.device;
+    final notifySub = _notifySubscription;
+    final connSub = _connectionStateSub;
+
+    _notifySubscription = null;
+    _connectionStateSub = null;
+    _watchdogTimer?.cancel();
+    _watchdogTimer = null;
+
+    // 1. Limpiamos el estado primero para que la UI responda al instante y no se trabe
+    _limpiarEstado();
+
+    // 2. Cerramos streams y conexión física con timeout para no colgarse si el ESP32 está apagado
     try {
-      await _notifySubscription?.cancel();
-      _notifySubscription = null;
+      await notifySub?.cancel().timeout(const Duration(seconds: 1));
+    } catch (_) {}
 
-      await _connectionStateSub?.cancel();
-      _connectionStateSub = null;
+    try {
+      await connSub?.cancel().timeout(const Duration(seconds: 1));
+    } catch (_) {}
 
-      if (state.device != null) {
-        await state.device!.disconnect();
+    if (dev != null) {
+      try {
+        await dev.disconnect().timeout(const Duration(seconds: 2));
+      } catch (e) {
+        debugPrint("Timeout o error al desconectar (ESP32 apagado): $e");
       }
-    } catch (e) {
-      debugPrint("Error al desconectar: $e");
-    } finally {
-      _limpiarEstado();
     }
   }
 
@@ -192,6 +216,7 @@ class BluetoothNotifier extends StateNotifier<BluetoothState> {
 
   @override
   void dispose() {
+    _watchdogTimer?.cancel();
     _adapterStateSub?.cancel();
     _notifySubscription?.cancel();
     _connectionStateSub?.cancel();

@@ -738,4 +738,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get textoPrivacidad5 => 'ユーザーはいつでもアカウントおよびトレーニング記録の削除を要求できます。';
+
+  @override
+  String get errorCredencialesIncorrectas => 'メールアドレスまたはパスワードが正しくありません';
 }

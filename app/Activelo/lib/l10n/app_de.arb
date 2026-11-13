@@ -17,6 +17,7 @@
   "confirmarContrasena": "Passwort bestätigen",
   "seleccionarFecha": "Datum auswählen",
   "seleccionaTuFechaNacimiento": "WÄHLEN SIE IHR GEBURTSDATUM",
+  "errorCredencialesIncorrectas": "E-Mail/Passwort falsch",
   "errorFechaNacimiento": "Bitte wählen Sie Ihr Geburtsdatum aus.",
   "errorNombreVacio": "Geben Sie Ihren vollständigen Namen ein",
   "errorCorreoVacio": "Geben Sie Ihre E-Mail-Adresse ein",

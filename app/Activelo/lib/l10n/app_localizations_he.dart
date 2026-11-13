@@ -749,4 +749,7 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String get textoPrivacidad5 =>
       'זכותך לבקש מחיקה לצמיתות של חשבונך וכל נתוני האימון שלך בכל עת.';
+
+  @override
+  String get errorCredencialesIncorrectas => 'אימייל או סיסמה שגויים';
 }

@@ -18,6 +18,7 @@
   "seleccionarFecha": "日付を選択",
   "seleccionaTuFechaNacimiento": "生年月日を選択してください",
   "errorFechaNacimiento": "生年月日を選択してください。",
+  "errorCredencialesIncorrectas": "メールアドレスまたはパスワードが正しくありません",
   "errorNombreVacio": "氏名を入力してください",
   "errorCorreoVacio": "メールアドレスを入力してください",
   "errorCorreoInvalido": "有効なメールアドレスを入力してください",

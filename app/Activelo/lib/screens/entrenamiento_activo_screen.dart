@@ -237,11 +237,18 @@ class _EntrenamientoActivoScreenState
     }
   }
 
-  void _apagarPodActual() {
+  void _apagarPodActual({bool actualizarUI = true}) {
     _timerDistractor?.cancel();
     if (podActivoActual != -1) {
       String comando = "EMPEZAR:$podActivoActual,0,0,0";
       ref.read(bluetoothProvider.notifier).enviarComando(comando);
+    }
+
+    if (!actualizarUI || !mounted) {
+      esperandoSensor = false;
+      ledEncendido = false;
+      podActivoActual = -1;
+      return;
     }
 
     final loc = AppLocalizations.of(context);
@@ -250,9 +257,8 @@ class _EntrenamientoActivoScreenState
       esperandoSensor = false;
       ledEncendido = false;
       podActivoActual = -1;
-      estadoTexto = modo == 'manual'
-          ? loc.seleccionaPodEncender
-          : loc.ledApagado;
+      estadoTexto =
+          modo == 'manual' ? loc.seleccionaPodEncender : loc.ledApagado;
     });
   }
 
@@ -271,7 +277,8 @@ class _EntrenamientoActivoScreenState
       if (esColor1Actual) {
         tiemposObtenidos.add(tiempoSeg);
         setState(() {
-          estadoTexto = loc.toqueEnPod(podPrevio + 1, tiempoSeg.toStringAsFixed(3));
+          estadoTexto =
+              loc.toqueEnPod(podPrevio + 1, tiempoSeg.toStringAsFixed(3));
         });
       } else {
         cantidadErrores++;
@@ -282,7 +289,8 @@ class _EntrenamientoActivoScreenState
     } else {
       tiemposObtenidos.add(tiempoSeg);
       setState(() {
-        estadoTexto = loc.toqueEnPod(podPrevio + 1, tiempoSeg.toStringAsFixed(3));
+        estadoTexto =
+            loc.toqueEnPod(podPrevio + 1, tiempoSeg.toStringAsFixed(3));
       });
     }
 
@@ -310,7 +318,7 @@ class _EntrenamientoActivoScreenState
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Row(
           children: [
             const Icon(Icons.bluetooth_disabled, color: Colors.redAccent),
@@ -321,9 +329,10 @@ class _EntrenamientoActivoScreenState
         content: Text(loc.errorDesconexionMensaje),
         actions: [
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.go('/home');
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              await Future.delayed(const Duration(milliseconds: 50));
+              if (mounted) context.go('/home');
             },
             child: Text(loc.volverAlInicio),
           ),
@@ -345,7 +354,7 @@ class _EntrenamientoActivoScreenState
     ref.read(soundServiceProvider).playFinish();
 
     double promedio = tiemposObtenidos.isEmpty
-        ? 0
+        ? 0.0
         : tiemposObtenidos.reduce((a, b) => a + b) / tiemposObtenidos.length;
 
     final user = FirebaseAuth.instance.currentUser;
@@ -356,74 +365,118 @@ class _EntrenamientoActivoScreenState
 
     if (!mounted) return;
 
+    bool guardando = false;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text(loc.entrenamientoFinalizado),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (esModoProfesional) ...[
-                Text(
-                  loc.usuario(perfilActivo?.nombre ?? loc.perfilPrincipal),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(loc.entrenamientoFinalizado),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (esModoProfesional) ...[
+                  Text(
+                    loc.usuario(perfilActivo?.nombre ?? loc.perfilPrincipal),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                Text(loc.toquesValidos(tiemposObtenidos.length)),
+                Text(loc.promedioSegundos(promedio.toStringAsFixed(3))),
+                if (modo == 'bicolor')
+                  Text(loc.erroresCometidos(cantidadErrores)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: notasController,
+                  enabled: !guardando,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: loc.anotacionesSesionOpcional,
+                    hintText: loc.hintAnotaciones,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.note_add_outlined),
+                  ),
                 ),
-                const SizedBox(height: 8),
               ],
-              Text(loc.toquesValidos(tiemposObtenidos.length)),
-              Text(loc.promedioSegundos(promedio.toStringAsFixed(3))),
-              if (modo == 'bicolor') Text(loc.erroresCometidos(cantidadErrores)),
-              const SizedBox(height: 16),
-
-              TextField(
-                controller: notasController,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  labelText: loc.anotacionesSesionOpcional,
-                  hintText: loc.hintAnotaciones,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.note_add_outlined),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () async {
-              if (user != null &&
-                  (tiemposObtenidos.isNotEmpty || cantidadErrores > 0)) {
-                final refBD = FirebaseDatabase.instance
-                    .ref("usuarios/${user.uid}/sesiones");
-                await refBD.push().set({
-                  "rondas": tiemposObtenidos.length,
-                  "modo": modo,
-                  "cantidad_pods": cantidadPods,
-                  "promedio_seg": promedio,
-                  "tiempos": tiemposObtenidos,
-                  "errores": cantidadErrores,
-                  "perfil_id": esModoProfesional
-                      ? (perfilActivo?.id ?? "principal")
-                      : "principal",
-                  "perfil_nombre": esModoProfesional
-                      ? (perfilActivo?.nombre ?? "Perfil Principal")
-                      : "Uso Personal",
-                  "notas_sesion": notasController.text.trim(),
-                  "timestamp": ServerValue.timestamp,
-                });
-              }
+          actions: [
+            TextButton(
+              onPressed: guardando
+                  ? null
+                  : () async {
+                      Navigator.of(dialogContext).pop();
+                      await Future.delayed(const Duration(milliseconds: 50));
+                      if (mounted) context.go('/home');
+                    },
+              child: Text(loc.cancelar),
+            ),
+            ElevatedButton(
+              onPressed: guardando
+                  ? null
+                  : () async {
+                      setDialogState(() => guardando = true);
 
-              if (context.mounted) {
-                Navigator.pop(context);
-                context.go('/home');
-              }
-            },
-            child: Text(loc.guardarYFinalizar),
-          )
-        ],
+                      try {
+                        if (user != null &&
+                            (tiemposObtenidos.isNotEmpty ||
+                                cantidadErrores > 0)) {
+                          final refBD = FirebaseDatabase.instance
+                              .ref("usuarios/${user.uid}/sesiones");
+                          await refBD.push().set({
+                            "rondas": tiemposObtenidos.length,
+                            "modo": modo,
+                            "cantidad_pods": cantidadPods,
+                            "promedio_seg": promedio,
+                            "tiempos": tiemposObtenidos,
+                            "errores": cantidadErrores,
+                            "perfil_id": esModoProfesional
+                                ? (perfilActivo?.id ?? "principal")
+                                : "principal",
+                            "perfil_nombre": esModoProfesional
+                                ? (perfilActivo?.nombre ?? "Perfil Principal")
+                                : "Uso Personal",
+                            "notas_sesion": notasController.text.trim(),
+                            "timestamp": ServerValue.timestamp,
+                          }).timeout(const Duration(seconds: 6));
+                        }
+
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
+                        await Future.delayed(const Duration(milliseconds: 50));
+                        if (mounted) {
+                          context.go('/home');
+                        }
+                      } catch (e) {
+                        debugPrint("Error al guardar sesión en Firebase: $e");
+                        if (dialogContext.mounted) {
+                          setDialogState(() => guardando = false);
+                        }
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("Error al guardar: $e"),
+                              backgroundColor: Colors.red.shade700,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              child: guardando
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(loc.guardarYFinalizar),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -433,7 +486,7 @@ class _EntrenamientoActivoScreenState
     _timerCuentaRegresiva?.cancel();
     _timerTiempo?.cancel();
     _timerDistractor?.cancel();
-    _apagarPodActual();
+    _apagarPodActual(actualizarUI: false);
     super.dispose();
   }
 
@@ -443,7 +496,8 @@ class _EntrenamientoActivoScreenState
     } else if (modo == 'manual') {
       return loc.modoManualToques(tiemposObtenidos.length);
     } else if (modo == 'tiempo') {
-      return loc.tiempoRestanteToques(tiemposObtenidos.length, tiempoRestanteSeg);
+      return loc.tiempoRestanteToques(
+          tiemposObtenidos.length, tiempoRestanteSeg);
     } else if (modo == 'bicolor') {
       return loc.bicolorRonda(rondaActual, rondasTotal);
     } else {
@@ -469,8 +523,8 @@ class _EntrenamientoActivoScreenState
     });
 
     List<int> currentRgb = obtenerRGBRonda();
-    Color currentColor = Color.fromRGBO(
-        currentRgb[0], currentRgb[1], currentRgb[2], 1.0);
+    Color currentColor =
+        Color.fromRGBO(currentRgb[0], currentRgb[1], currentRgb[2], 1.0);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final perfilActivo = ref.watch(perfilActivoProvider);
     final esModoProfesional = ref.watch(modoProfesionalProvider);
@@ -482,7 +536,7 @@ class _EntrenamientoActivoScreenState
           _timerCuentaRegresiva?.cancel();
           _timerTiempo?.cancel();
           _timerDistractor?.cancel();
-          _apagarPodActual();
+          _apagarPodActual(actualizarUI: false);
         }
       },
       child: Scaffold(
@@ -509,7 +563,6 @@ class _EntrenamientoActivoScreenState
                   ),
                   const SizedBox(height: 12),
                 ],
-
                 if (modo == 'tiempo' && !enCuentaRegresiva) ...[
                   Chip(
                     avatar:
@@ -529,7 +582,6 @@ class _EntrenamientoActivoScreenState
                   ),
                   const SizedBox(height: 16),
                 ],
-
                 if (enCuentaRegresiva) ...[
                   Container(
                     width: 140,
@@ -589,9 +641,7 @@ class _EntrenamientoActivoScreenState
                     ),
                   ),
                 ],
-
                 const SizedBox(height: 24),
-
                 Text(
                   estadoTexto.isEmpty ? loc.preparate : estadoTexto,
                   textAlign: TextAlign.center,
@@ -604,7 +654,6 @@ class _EntrenamientoActivoScreenState
                   ),
                 ),
                 const SizedBox(height: 16),
-
                 Container(
                   width: double.infinity,
                   padding:
@@ -683,7 +732,6 @@ class _EntrenamientoActivoScreenState
                   ),
                 ),
                 const SizedBox(height: 32),
-
                 SizedBox(
                   width: double.infinity,
                   height: 50,

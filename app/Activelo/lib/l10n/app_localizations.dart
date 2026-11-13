@@ -1469,6 +1469,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Tienes derecho a solicitar la baja definitiva de tu cuenta y la eliminación total de tus registros de entrenamiento en cualquier momento.'**
   String get textoPrivacidad5;
+
+  /// No description provided for @errorCredencialesIncorrectas.
+  ///
+  /// In es, this message translates to:
+  /// **'Email/contraseña incorrecta'**
+  String get errorCredencialesIncorrectas;
 }
 
 class _AppLocalizationsDelegate

@@ -15,6 +15,7 @@
   "correoElectronico": "E-mail",
   "contrasena": "Mot de passe",
   "confirmarContrasena": "Confirmez le mot de passe",
+  "errorCredencialesIncorrectas": "E-mail/mot de passe incorrect",
   "seleccionarFecha": "Sélectionnez une date",
   "seleccionaTuFechaNacimiento": "CHOISISSEZ VOTRE DATE DE NAISSANCE",
   "errorFechaNacimiento": "Veuillez sélectionner votre date de naissance.",

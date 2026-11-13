@@ -767,4 +767,7 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get textoPrivacidad5 =>
       'Tienes derecho a solicitar la baja definitiva de tu cuenta y la eliminación total de tus registros de entrenamiento en cualquier momento.';
+
+  @override
+  String get errorCredencialesIncorrectas => 'Email/password non validi';
 }

@@ -17,6 +17,7 @@
   "confirmarContrasena": "אימות סיסמה",
   "seleccionarFecha": "בחר תאריך",
   "seleccionaTuFechaNacimiento": "בחר את תאריך הלידה שלך",
+  "errorCredencialesIncorrectas": "אימייל או סיסמה שגויים",
   "errorFechaNacimiento": "אנא בחר את תאריך הלידה שלך.",
   "errorNombreVacio": "הזן את שמך המלא",
   "errorCorreoVacio": "הזן את כתובת הדואר האלקטרוני שלך",

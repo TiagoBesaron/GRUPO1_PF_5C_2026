@@ -774,4 +774,7 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get textoPrivacidad5 =>
       'Sie haben jederzeit das Recht, die dauerhafte Löschung Ihres Kontos und die vollständige Löschung Ihrer Schulungsunterlagen zu verlangen.';
+
+  @override
+  String get errorCredencialesIncorrectas => 'E-Mail/Passwort falsch';
 }

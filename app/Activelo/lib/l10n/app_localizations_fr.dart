@@ -773,4 +773,7 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get textoPrivacidad5 =>
       'Vous avez le droit de demander à tout moment la suppression définitive de votre compte et la suppression totale de vos dossiers de formation.';
+
+  @override
+  String get errorCredencialesIncorrectas => 'E-mail/mot de passe incorrect';
 }

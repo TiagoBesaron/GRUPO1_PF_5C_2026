@@ -1,5 +1,5 @@
-1. Que si me equivoco la contraseña me diga email/contraseña incorrecta.
-2. Que confirme la contraseña al registrarse.
-3. Que no haya ningun error.
-4. Manual de usuario.
-5. APP para el club.
+3. Que no haya ningun error con el bluetooth.
+4. QUe la foto del perfil principal aparezca en la home.
+5. Manual de usuario.
+6. Agregar modo de fer.
+7. Generar apk y app de windows  para la expo.

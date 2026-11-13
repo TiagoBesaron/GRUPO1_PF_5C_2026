@@ -225,5 +225,6 @@
   "tituloPrivacidad4": "4. Proteção de Dados",
   "textoPrivacidad4": "Implementamos medidas de segurança para proteger suas informações armazenadas na nuvem. Não vendemos nem compartilhamos seus dados pessoais com terceiros para fins comerciais ou publicitários.",
   "tituloPrivacidad5": "5. Exclusão de Dados",
-  "textoPrivacidad5": "Você tem o direito de solicitar o encerramento definitivo da sua conta e a exclusão total dos seus registros de treino a qualquer momento."
+  "textoPrivacidad5": "Você tem o direito de solicitar o encerramento definitivo da sua conta e a exclusão total dos seus registros de treino a qualquer momento.",
+  "errorCredencialesIncorrectas": "E-mail/senha incorretos"
 }

@@ -1,7 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+
 import '../l10n/app_localizations.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -13,364 +16,454 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
-  final TextEditingController _nombreController = TextEditingController();
-  final TextEditingController _fechaNacimientoController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  DateTime? _selectedBirthDate;
+  String? _birthDateError;
+  String? _errorMessage;
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
-  DateTime? _selectedDate;
 
   @override
   void dispose() {
-    _nombreController.dispose();
-    _fechaNacimientoController.dispose();
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selectBirthDate(AppLocalizations l10n) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
+      initialDate: _selectedBirthDate ?? DateTime(now.year - 20, now.month, now.day),
       firstDate: DateTime(1920),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF3B82F6),
-              onPrimary: Colors.white,
-              onSurface: Colors.black87,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      lastDate: now,
+      helpText: l10n.seleccionaTuFechaNacimiento,
     );
 
-    if (picked != null && picked != _selectedDate) {
+    if (picked != null) {
       setState(() {
-        _selectedDate = picked;
-        _fechaNacimientoController.text =
-            "${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}";
+        _selectedBirthDate = picked;
+        _birthDateError = null;
       });
     }
   }
 
-  Future<void> _crearCuenta(AppLocalizations loc) async {
-    if (!_formKey.currentState!.validate()) return;
+  String _mapRegisterError(FirebaseAuthException e, AppLocalizations l10n) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return 'Este correo electrónico ya está registrado';
+      case 'invalid-email':
+        return l10n.errorCorreoInvalido;
+      case 'weak-password':
+        return l10n.errorContrasenaCorta;
+      case 'network-request-failed':
+        return 'Error de conexión. Verificá tu acceso a internet';
+      default:
+        return e.message ?? 'Error al crear la cuenta';
+    }
+  }
 
-    setState(() => _isLoading = true);
+  Future<void> _register(AppLocalizations l10n) async {
+    final isFormValid = _formKey.currentState!.validate();
+
+    if (_selectedBirthDate == null) {
+      setState(() {
+        _birthDateError = l10n.errorFechaNacimiento;
+      });
+    }
+
+    if (!isFormValid || _selectedBirthDate == null) return;
+
+    if (_passwordController.text != _confirmPasswordController.text) {
+      setState(() {
+        _errorMessage = l10n.errorContrasenasNoCoinciden;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
-      final UserCredential userCredential =
+      final credential =
           await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+        password: _passwordController.text,
       );
 
-      final String uid = userCredential.user!.uid;
+      final user = credential.user;
+      if (user != null) {
+        final fullName = _nameController.text.trim();
+        await user.updateDisplayName(fullName);
 
-      await FirebaseDatabase.instance.ref('usuarios/$uid').set({
-        'nombre': _nombreController.text.trim(),
-        'fecha_nacimiento': _selectedDate?.toIso8601String() ?? '',
-        'email': _emailController.text.trim(),
-        'creado_el': DateTime.now().toIso8601String(),
-      });
-
-      await userCredential.user?.updateDisplayName(_nombreController.text.trim());
+        try {
+          await FirebaseDatabase.instance.ref('usuarios/${user.uid}').set({
+            'nombre': fullName,
+            'email': _emailController.text.trim(),
+            'fechaNacimiento': DateFormat('yyyy-MM-dd').format(_selectedBirthDate!),
+            'fechaRegistro': ServerValue.timestamp,
+          });
+        } catch (dbError) {
+          debugPrint('Nota al guardar perfil en RTDB: $dbError');
+        }
+      }
 
       if (mounted) {
         context.go('/home');
       }
     } on FirebaseAuthException catch (e) {
-      String mensaje = 'Error al crear la cuenta';
-      if (e.code == 'weak-password') {
-        mensaje = loc.errorContrasenaCorta;
-      } else if (e.code == 'email-already-in-use') {
-        mensaje = 'Este correo electrónico ya está registrado.';
-      } else if (e.code == 'invalid-email') {
-        mensaje = loc.errorCorreoInvalido;
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      final message = _mapRegisterError(e, l10n);
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = message;
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
           SnackBar(
-            content: Text(mensaje),
-            backgroundColor: Colors.redAccent,
+            content: Text(message),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
           ),
         );
-      }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error inesperado: $e'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Ocurrió un error inesperado al registrarte';
+      });
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
-  }
-
-  InputDecoration _inputDecoration({
-    required String label,
-    required IconData icon,
-    Widget? suffixIcon,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      isDense: true,
-      prefixIcon: Icon(icon, color: Colors.grey[700], size: 20),
-      suffixIcon: suffixIcon,
-      filled: true,
-      fillColor: const Color(0xFFF3F4F6),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.redAccent),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        toolbarHeight: 40,
+        title: Text(l10n.registrate),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          tooltip: loc.volverAlInicioSesion,
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/login');
-            }
-          },
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/login'),
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 4.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Column(
-                  children: [
-                    Image.asset(
-                      'assets/logo.png',
-                      height: 70,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        height: 70,
-                        width: 70,
-                        decoration: const BoxDecoration(
-                          color: Colors.black,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.directions_run,
-                          color: Colors.amber,
-                          size: 38,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      loc.appTitle.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF3B82F6),
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      loc.subtituloRegistro,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-
-                TextFormField(
-                  controller: _nombreController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: _inputDecoration(
-                    label: loc.nombreCompleto,
-                    icon: Icons.person_outline,
-                  ),
-                  validator: (val) {
-                    if (val == null || val.trim().isEmpty) {
-                      return loc.errorNombreVacio;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 8),
-
-                TextFormField(
-                  controller: _fechaNacimientoController,
-                  readOnly: true,
-                  onTap: () => _selectDate(context),
-                  decoration: _inputDecoration(
-                    label: loc.fechaNacimiento,
-                    icon: Icons.cake_outlined,
-                  ),
-                  validator: (val) {
-                    if (val == null || val.isEmpty) {
-                      return loc.errorFechaNacimiento;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 8),
-
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: _inputDecoration(
-                    label: loc.correoElectronico,
-                    icon: Icons.email_outlined,
-                  ),
-                  validator: (val) {
-                    if (val == null || val.trim().isEmpty) {
-                      return loc.errorCorreoVacio;
-                    }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
-                      return loc.errorCorreoInvalido;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 8),
-
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: _inputDecoration(
-                    label: loc.contrasena,
-                    icon: Icons.lock_outline,
-                    suffixIcon: IconButton(
-                      iconSize: 20,
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        color: Colors.grey[600],
-                      ),
-                      onPressed: () {
-                        setState(() => _obscurePassword = !_obscurePassword);
-                      },
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l10n.registrate,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
                     ),
                   ),
-                  validator: (val) {
-                    if (val == null || val.isEmpty) {
-                      return loc.errorContrasenaVacia;
-                    }
-                    if (val.length < 6) {
-                      return loc.errorContrasenaCorta;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 8),
-
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: _obscureConfirmPassword,
-                  decoration: _inputDecoration(
-                    label: loc.confirmarContrasena,
-                    icon: Icons.lock_reset_outlined,
-                    suffixIcon: IconButton(
-                      iconSize: 20,
-                      icon: Icon(
-                        _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        color: Colors.grey[600],
-                      ),
-                      onPressed: () {
-                        setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
-                      },
+                  const SizedBox(height: 6),
+                  Text(
+                    l10n.subtituloRegistro,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  validator: (val) {
-                    if (val == null || val.isEmpty) {
-                      return loc.errorContrasenaVacia;
-                    }
-                    if (val != _passwordController.text) {
-                      return loc.errorContrasenasNoCoinciden;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 10),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 46,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: _isLoading ? null : () => _crearCuenta(loc),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2.5,
+                  const SizedBox(height: 24),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Nombre completo
+                            TextFormField(
+                              controller: _nameController,
+                              textCapitalization: TextCapitalization.words,
+                              textInputAction: TextInputAction.next,
+                              decoration: InputDecoration(
+                                labelText: l10n.nombreCompleto,
+                                prefixIcon: const Icon(Icons.person_outline),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return l10n.errorNombreVacio;
+                                }
+                                return null;
+                              },
                             ),
-                          )
-                        : Text(
-                            loc.crearCuenta,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.1,
+                            const SizedBox(height: 16),
+
+                            // Fecha de nacimiento
+                            InkWell(
+                              onTap: () => _selectBirthDate(l10n),
+                              borderRadius: BorderRadius.circular(12),
+                              child: InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: l10n.fechaNacimiento,
+                                  prefixIcon: const Icon(Icons.cake_outlined),
+                                  errorText: _birthDateError,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: Text(
+                                  _selectedBirthDate != null
+                                      ? DateFormat('dd/MM/yyyy')
+                                          .format(_selectedBirthDate!)
+                                      : l10n.seleccionarFecha,
+                                  style: TextStyle(
+                                    color: _selectedBirthDate != null
+                                        ? theme.colorScheme.onSurface
+                                        : theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
                             ),
+                            const SizedBox(height: 16),
+
+                            // Correo electrónico
+                            TextFormField(
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                              decoration: InputDecoration(
+                                labelText: l10n.correoElectronico,
+                                prefixIcon: const Icon(Icons.email_outlined),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return l10n.errorCorreoVacio;
+                                }
+                                final emailRegex = RegExp(
+                                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                );
+                                if (!emailRegex.hasMatch(value.trim())) {
+                                  return l10n.errorCorreoInvalido;
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Contraseña
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              textInputAction: TextInputAction.next,
+                              decoration: InputDecoration(
+                                labelText: l10n.contrasena,
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscurePassword = !_obscurePassword;
+                                    });
+                                  },
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return l10n.errorContrasenaVacia;
+                                }
+                                if (value.length < 6) {
+                                  return l10n.errorContrasenaCorta;
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Confirmar Contraseña
+                            TextFormField(
+                              controller: _confirmPasswordController,
+                              obscureText: _obscureConfirmPassword,
+                              textInputAction: TextInputAction.done,
+                              onFieldSubmitted: (_) => _register(l10n),
+                              decoration: InputDecoration(
+                                labelText: l10n.confirmarContrasena,
+                                prefixIcon: const Icon(Icons.lock_reset_outlined),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscureConfirmPassword
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscureConfirmPassword =
+                                          !_obscureConfirmPassword;
+                                    });
+                                  },
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return l10n.errorContrasenaVacia;
+                                }
+                                if (value != _passwordController.text) {
+                                  return l10n.errorContrasenasNoCoinciden;
+                                }
+                                return null;
+                              },
+                            ),
+
+                            if (_errorMessage != null) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: Colors.red.shade400,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.error_outline,
+                                      color: Colors.red.shade700,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _errorMessage!,
+                                        style: TextStyle(
+                                          color: Colors.red.shade700,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 24),
+
+                            // Botón Crear Cuenta
+                            SizedBox(
+                              height: 50,
+                              child: ElevatedButton(
+                                onPressed:
+                                    _isLoading ? null : () => _register(l10n),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        height: 22,
+                                        width: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        l10n.crearCuenta,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '${l10n.yaTenesCuenta} ',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      GestureDetector(
+                        onTap: () => context.go('/login'),
+                        child: Text(
+                          l10n.iniciarSesion,
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.bold,
                           ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 4),
-              ],
+                  const SizedBox(height: 16),
+                  Text.rich(
+                    TextSpan(
+                      text: l10n.alRegistrarteAceptas,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: l10n.terminosYPrivacidad,
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                          ),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () => context.push('/terminos-privacidad'),
+                        ),
+                      ],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

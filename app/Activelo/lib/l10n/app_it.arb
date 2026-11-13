@@ -225,5 +225,6 @@
   "tituloPrivacidad4": "4. Protezione dei dati",
   "textoPrivacidad4": "Implementiamo misure di sicurezza per proteggere le tue informazioni archiviate nel cloud. Non vendiamo né condividiamo i tuoi dati personali con terzi per scopi commerciali o pubblicitari.",
   "tituloPrivacidad5": "5. Eliminación de Datos",
-  "textoPrivacidad5": "Tienes derecho a solicitar la baja definitiva de tu cuenta y la eliminación total de tus registros de entrenamiento en cualquier momento."
+  "textoPrivacidad5": "Tienes derecho a solicitar la baja definitiva de tu cuenta y la eliminación total de tus registros de entrenamiento en cualquier momento.",
+  "errorCredencialesIncorrectas": "Email/password non validi"
 }

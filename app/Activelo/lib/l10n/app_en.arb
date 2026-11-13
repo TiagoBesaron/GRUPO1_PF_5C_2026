@@ -225,5 +225,6 @@
   "tituloPrivacidad4": "4. Data Protection",
   "textoPrivacidad4": "We implement security measures to protect your information stored in the cloud. We do not sell or share your personal data with third parties for commercial or advertising purposes.",
   "tituloPrivacidad5": "5. Data Deletion",
-  "textoPrivacidad5": "You have the right to request the permanent deletion of your account and the total deletion of your training records at any time."
+  "textoPrivacidad5": "You have the right to request the permanent deletion of your account and the total deletion of your training records at any time.",
+  "errorCredencialesIncorrectas": "Incorrect email/password"
 }
