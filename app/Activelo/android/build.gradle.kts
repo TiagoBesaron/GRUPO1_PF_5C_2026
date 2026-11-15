@@ -1,39 +1,33 @@
-plugins {
-    id("com.android.application")
-    // The Flutter Gradle Plugin must be applied after the Android Gradle plugin.
-    id("dev.flutter.flutter-gradle-plugin")
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
 }
 
-android {
-    namespace = "com.example.Activelo"
-    compileSdk = flutter.compileSdkVersion
+val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
+rootProject.layout.buildDirectory.value(newBuildDir)
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
+subprojects {
+    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
+    project.layout.buildDirectory.value(newSubprojectBuildDir)
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
 
-    defaultConfig {
-        applicationId = "com.example.Activelo"
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
-    }
-
-    buildTypes {
-        release {
-            signingConfig = signingConfigs.getByName("debug")
+tasks.register<Delete>("clean") {
+    delete(rootProject.layout.buildDirectory)
+}
+subprojects {
+    // Ignoramos el módulo app para que no lance el error "already evaluated"
+    if (project.name != "app") {
+        project.afterEvaluate {
+            @Suppress("DEPRECATION")
+            val androidExt = project.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
+            if (androidExt != null) {
+                androidExt.compileSdkVersion(36)
+            }
         }
     }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-    }
-}
-
-flutter {
-    source = "../.."
 }
