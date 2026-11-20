@@ -22,7 +22,8 @@ Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x84, 0x2A, 0x64 }; // Pod 1 Periférico (podTarget 1)
 uint8_t macPod2[] = { 0xB8, 0x1F, 0x3F, 0xE4, 0xF2, 0x3C }; // Pod 2 Periférico (podTarget 2)
 uint8_t macPod3[] = { 0x44, 0xBD, 0x8D, 0x5E, 0x0B, 0xBC }; // Pod 3 Periférico (podTarget 3)
-uint8_t macPod4[] = { 0x3C, 0x0F, 0x02, 0x86, 0x93, 0xF8 }; // Pod 4 Periférico (podTarget 4) 
+uint8_t macPod4[] = { 0x3C, 0x0F, 0x02, 0x86, 0x93, 0xF8 }; // Pod 4 Periférico (podTarget 4)
+
 
 typedef struct struct_message {
   uint8_t podId;
