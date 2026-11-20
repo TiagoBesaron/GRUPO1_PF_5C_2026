@@ -18,12 +18,12 @@
 
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
-// MAC Wi-Fi STA de los 4 Pods Periféricos
-uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x84, 0x2A, 0x64 };  // Pod 1 Periférico (podTarget 1)
-uint8_t macPod2[] = { 0xB8, 0x1F, 0x3F, 0xE4, 0xF2, 0x3C };  // Pod 2 Periférico (podTarget 2)
-uint8_t macPod3[] = { 0x44, 0xBD, 0x8D, 0x5E, 0x0B, 0xBC };  // Pod 3 Periférico (podTarget 3)
-uint8_t macPod4[] = { 0x3C, 0x0F, 0x02, 0x86, 0x93, 0xF8 };  // Pod 4 Periférico (podTarget 4)
-uint8_t macPod5[] = { 0x30, 0xED, 0xA0, 0x64, 0x37, 0x44 };  // Pod 4 Periférico (podTarget 5)
+// MAC Wi-Fi STA de los 5 Pods Periféricos
+uint8_t macPod1[] = { 0x3C, 0x0F, 0x02, 0x84, 0x2A, 0x64 }; // Pod 1 Periférico (podTarget 1)
+uint8_t macPod2[] = { 0xB8, 0x1F, 0x3F, 0xE4, 0xF2, 0x3C }; // Pod 2 Periférico (podTarget 2)
+uint8_t macPod3[] = { 0x44, 0xBD, 0x8D, 0x5E, 0x0B, 0xBC }; // Pod 3 Periférico (podTarget 3)
+uint8_t macPod4[] = { 0x3C, 0x0F, 0x02, 0x86, 0x93, 0xF8 }; // Pod 4 Periférico (podTarget 4)
+uint8_t macPod5[] = { 0x30, 0xED, 0xA0, 0x64, 0x37, 0x44 }; // Pod 5 Periférico (podTarget 5)
 
 
 typedef struct struct_message {
@@ -149,9 +149,7 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
           datosEnvio.b = b;
           datosEnvio.esReaccion = false;
           esp_err_t err = esp_now_send(macPod1, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
-          if (err != ESP_OK) {
-            Serial.printf("[CENTRAL] Error enviando a Pod 1: %s\n", esp_err_to_name(err));
-          }
+          if (err != ESP_OK) Serial.printf("[CENTRAL] Error enviando a Pod 1: %s\n", esp_err_to_name(err));
         } else if (podTarget == 2) {
           datosEnvio.podId = 2;
           datosEnvio.r = r;
@@ -159,9 +157,7 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
           datosEnvio.b = b;
           datosEnvio.esReaccion = false;
           esp_err_t err = esp_now_send(macPod2, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
-          if (err != ESP_OK) {
-            Serial.printf("[CENTRAL] Error enviando a Pod 2: %s\n", esp_err_to_name(err));
-          }
+          if (err != ESP_OK) Serial.printf("[CENTRAL] Error enviando a Pod 2: %s\n", esp_err_to_name(err));
         } else if (podTarget == 3) {
           datosEnvio.podId = 3;
           datosEnvio.r = r;
@@ -169,20 +165,15 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
           datosEnvio.b = b;
           datosEnvio.esReaccion = false;
           esp_err_t err = esp_now_send(macPod3, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
-          if (err != ESP_OK) {
-            Serial.printf("[CENTRAL] Error enviando a Pod 3: %s\n", esp_err_to_name(err));
-          }
+          if (err != ESP_OK) Serial.printf("[CENTRAL] Error enviando a Pod 3: %s\n", esp_err_to_name(err));
         } else if (podTarget == 4) {
-          // Envío directo a Pod 4 (Cuarto Periférico)
           datosEnvio.podId = 4;
           datosEnvio.r = r;
           datosEnvio.g = g;
           datosEnvio.b = b;
           datosEnvio.esReaccion = false;
           esp_err_t err = esp_now_send(macPod4, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
-          if (err != ESP_OK) {
-            Serial.printf("[CENTRAL] Error enviando a Pod 4: %s\n", esp_err_to_name(err));
-          }
+          if (err != ESP_OK) Serial.printf("[CENTRAL] Error enviando a Pod 4: %s\n", esp_err_to_name(err));
         } else if (podTarget == 5) {
           // Envío directo a Pod 5 (Quinto Periférico)
           datosEnvio.podId = 5;
@@ -191,144 +182,141 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
           datosEnvio.b = b;
           datosEnvio.esReaccion = false;
           esp_err_t err = esp_now_send(macPod5, (uint8_t *)&datosEnvio, sizeof(datosEnvio));
-          if (err != ESP_OK) {
-            Serial.printf("[CENTRAL] Error enviando a Pod 5: %s\n", esp_err_to_name(err));
-          }
+          if (err != ESP_OK) Serial.printf("[CENTRAL] Error enviando a Pod 5: %s\n", esp_err_to_name(err));
         }
       }
     }
-  };
+  }
+};
 
-  void setup() {
-    Serial.begin(115200);
-    strip.begin();
-    strip.setBrightness(255);
+void setup() {
+  Serial.begin(115200);
+  strip.begin();
+  strip.setBrightness(255);
+  apagarLEDsLocales();
+  pinMode(PIN_RCWL, INPUT);
+
+  delay(1500);
+
+  // Configuración Wi-Fi STA en Canal 1
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  esp_wifi_set_ps(WIFI_PS_NONE);
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
+  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+
+  Serial.print("[CENTRAL] MAC Wi-Fi STA: ");
+  Serial.println(WiFi.macAddress());
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error al inicializar ESP-NOW en Central");
+    return;
+  }
+  esp_now_register_send_cb(OnDataSent);
+  esp_now_register_recv_cb(OnDataRecv);
+
+  // Registrar Pod 1
+  esp_now_peer_info_t peerInfo1 = {};
+  memcpy(peerInfo1.peer_addr, macPod1, 6);
+  peerInfo1.channel = 1;
+  peerInfo1.ifidx = WIFI_IF_STA;
+  peerInfo1.encrypt = false;
+  esp_now_add_peer(&peerInfo1);
+
+  // Registrar Pod 2
+  esp_now_peer_info_t peerInfo2 = {};
+  memcpy(peerInfo2.peer_addr, macPod2, 6);
+  peerInfo2.channel = 1;
+  peerInfo2.ifidx = WIFI_IF_STA;
+  peerInfo2.encrypt = false;
+  esp_now_add_peer(&peerInfo2);
+
+  // Registrar Pod 3
+  esp_now_peer_info_t peerInfo3 = {};
+  memcpy(peerInfo3.peer_addr, macPod3, 6);
+  peerInfo3.channel = 1;
+  peerInfo3.ifidx = WIFI_IF_STA;
+  peerInfo3.encrypt = false;
+  esp_now_add_peer(&peerInfo3);
+
+  // Registrar Pod 4
+  esp_now_peer_info_t peerInfo4 = {};
+  memcpy(peerInfo4.peer_addr, macPod4, 6);
+  peerInfo4.channel = 1;
+  peerInfo4.ifidx = WIFI_IF_STA;
+  peerInfo4.encrypt = false;
+  esp_now_add_peer(&peerInfo4);
+
+  // Registrar Pod 5
+  esp_now_peer_info_t peerInfo5 = {};
+  memcpy(peerInfo5.peer_addr, macPod5, 6);
+  peerInfo5.channel = 1;
+  peerInfo5.ifidx = WIFI_IF_STA;
+  peerInfo5.encrypt = false;
+  esp_err_t r5 = esp_now_add_peer(&peerInfo5);
+  if (r5 != ESP_OK) {
+    Serial.printf("[CENTRAL] Error registrando Pod 5: %s\n", esp_err_to_name(r5));
+  }
+
+  // Configuración BLE
+  BLEDevice::init("ACTIVELO_CENTRAL");
+  pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new ServerCallbacks());
+
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+  pTxCharacteristic = pService->createCharacteristic(
+    CHARACTERISTIC_UUID_TX, BLECharacteristic::PROPERTY_NOTIFY);
+  pTxCharacteristic->addDescriptor(new BLE2902());
+
+  BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
+    CHARACTERISTIC_UUID_RX, BLECharacteristic::PROPERTY_WRITE);
+  pRxCharacteristic->setCallbacks(new CharacteristicCallbacks());
+
+  pService->start();
+  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->start();
+
+  Serial.println("[CENTRAL] Puente BLE / ESP-NOW iniciado con 5 Pods Periféricos (6 Pods totales).");
+}
+
+void loop() {
+  if (!appConectada) {
+    delay(10);
+    return;
+  }
+
+  // 1. Control del sensor local del Pod 0
+  if (esperandoSensorLocal && digitalRead(PIN_RCWL) == HIGH) {
+    unsigned long reactionTime = millis() - startTimeLocal;
+    esperandoSensorLocal = false;
     apagarLEDsLocales();
-    pinMode(PIN_RCWL, INPUT);
 
-    delay(1500);
-
-    // Configuración Wi-Fi STA en Canal 1
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-    esp_wifi_set_ps(WIFI_PS_NONE);
-    WiFi.setTxPower(WIFI_POWER_8_5dBm);
-    esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
-
-    Serial.print("[CENTRAL] MAC Wi-Fi STA: ");
-    Serial.println(WiFi.macAddress());
-
-    if (esp_now_init() != ESP_OK) {
-      Serial.println("Error al inicializar ESP-NOW en Central");
-      return;
+    if (pTxCharacteristic != NULL) {
+      String mensaje = "REACCION:" + String(reactionTime);
+      pTxCharacteristic->setValue(mensaje.c_str());
+      pTxCharacteristic->notify();
     }
-    esp_now_register_send_cb(OnDataSent);
-    esp_now_register_recv_cb(OnDataRecv);
-
-    // Registrar Pod 1
-    esp_now_peer_info_t peerInfo1 = {};
-    memcpy(peerInfo1.peer_addr, macPod1, 6);
-    peerInfo1.channel = 1;
-    peerInfo1.ifidx = WIFI_IF_STA;
-    peerInfo1.encrypt = false;
-    esp_err_t r1 = esp_now_add_peer(&peerInfo1);
-    if (r1 != ESP_OK) {
-      Serial.printf("[CENTRAL] Error registrando Pod 1: %s\n", esp_err_to_name(r1));
-    }
-
-    // Registrar Pod 2
-    esp_now_peer_info_t peerInfo2 = {};
-    memcpy(peerInfo2.peer_addr, macPod2, 6);
-    peerInfo2.channel = 1;
-    peerInfo2.ifidx = WIFI_IF_STA;
-    peerInfo2.encrypt = false;
-    esp_err_t r2 = esp_now_add_peer(&peerInfo2);
-    if (r2 != ESP_OK) {
-      Serial.printf("[CENTRAL] Error registrando Pod 2: %s\n", esp_err_to_name(r2));
-    }
-
-    // Registrar Pod 3
-    esp_now_peer_info_t peerInfo3 = {};
-    memcpy(peerInfo3.peer_addr, macPod3, 6);
-    peerInfo3.channel = 1;
-    peerInfo3.ifidx = WIFI_IF_STA;
-    peerInfo3.encrypt = false;
-    esp_err_t r3 = esp_now_add_peer(&peerInfo3);
-    if (r3 != ESP_OK) {
-      Serial.printf("[CENTRAL] Error registrando Pod 3: %s\n", esp_err_to_name(r3));
-    }
-
-    // Registrar Pod 4
-    esp_now_peer_info_t peerInfo4 = {};
-    memcpy(peerInfo4.peer_addr, macPod4, 6);
-    peerInfo4.channel = 1;
-    peerInfo4.ifidx = WIFI_IF_STA;
-    peerInfo4.encrypt = false;
-    esp_err_t r4 = esp_now_add_peer(&peerInfo4);
-    if (r4 != ESP_OK) {
-      Serial.printf("[CENTRAL] Error registrando Pod 4: %s\n", esp_err_to_name(r4));
-    }
-
-    // Configuración BLE
-    BLEDevice::init("ACTIVELO_CENTRAL");
-    pServer = BLEDevice::createServer();
-    pServer->setCallbacks(new ServerCallbacks());
-
-    BLEService *pService = pServer->createService(SERVICE_UUID);
-    pTxCharacteristic = pService->createCharacteristic(
-      CHARACTERISTIC_UUID_TX, BLECharacteristic::PROPERTY_NOTIFY);
-    pTxCharacteristic->addDescriptor(new BLE2902());
-
-    BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
-      CHARACTERISTIC_UUID_RX, BLECharacteristic::PROPERTY_WRITE);
-    pRxCharacteristic->setCallbacks(new CharacteristicCallbacks());
-
-    pService->start();
-    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-    pAdvertising->addServiceUUID(SERVICE_UUID);
-    pAdvertising->start();
-
-    Serial.println("[CENTRAL] Puente BLE / ESP-NOW iniciado con 5 Pods Periféricos (6 Pods totales).");
   }
 
-  void loop() {
-    if (!appConectada) {
-      delay(10);
-      return;
-    }
-
-    // 1. Control del sensor local del Pod 0
-    if (esperandoSensorLocal && digitalRead(PIN_RCWL) == HIGH) {
-      unsigned long reactionTime = millis() - startTimeLocal;
-      esperandoSensorLocal = false;
-      apagarLEDsLocales();
-
-      if (pTxCharacteristic != NULL) {
-        String mensaje = "REACCION:" + String(reactionTime);
-        pTxCharacteristic->setValue(mensaje.c_str());
-        pTxCharacteristic->notify();
-      }
-    }
-
-    if (comandoPendienteLocal && digitalRead(PIN_RCWL) == LOW) {
-      comandoPendienteLocal = false;
-      encenderLEDsLocales(pendingR, pendingG, pendingB);
-      startTimeLocal = millis();
-      esperandoSensorLocal = true;
-    }
-
-    // 2. Transmisión por BLE del tiempo de reacción de Pods remotos
-    if (hayReaccionRemota) {
-      hayReaccionRemota = false;
-      if (pTxCharacteristic != NULL) {
-        String mensaje = "REACCION:" + String(reactionTimeRemoto);
-        pTxCharacteristic->setValue(mensaje.c_str());
-        pTxCharacteristic->notify();
-        Serial.print("[CENTRAL] Reacción remota retransmitida a la App: ");
-        Serial.println(mensaje);
-      }
-    }
-
-    delay(1);
+  if (comandoPendienteLocal && digitalRead(PIN_RCWL) == LOW) {
+    comandoPendienteLocal = false;
+    encenderLEDsLocales(pendingR, pendingG, pendingB);
+    startTimeLocal = millis();
+    esperandoSensorLocal = true;
   }
-},
+
+  // 2. Transmisión por BLE del tiempo de reacción de Pods remotos
+  if (hayReaccionRemota) {
+    hayReaccionRemota = false;
+    if (pTxCharacteristic != NULL) {
+      String mensaje = "REACCION:" + String(reactionTimeRemoto);
+      pTxCharacteristic->setValue(mensaje.c_str());
+      pTxCharacteristic->notify();
+      Serial.print("[CENTRAL] Reacción remota retransmitida a la App: ");
+      Serial.println(mensaje);
+    }
+  }
+
+  delay(1);
+}
